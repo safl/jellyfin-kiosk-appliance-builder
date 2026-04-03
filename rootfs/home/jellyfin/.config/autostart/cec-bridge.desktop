@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=CEC Bridge
+Exec=/home/jellyfin/bin/cec-jellyfin.sh
+X-GNOME-Autostart-enabled=true
+Terminal=false

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Unclutter
+Exec=unclutter --timeout 1 --jitter 4
+X-GNOME-Autostart-enabled=true
+Terminal=false

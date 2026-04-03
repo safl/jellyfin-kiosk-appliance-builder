@@ -1,0 +1,15 @@
+# cijoe
+cijoe-output/
+cijoe-archive/
+
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/

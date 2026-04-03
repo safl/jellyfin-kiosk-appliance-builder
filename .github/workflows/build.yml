@@ -1,0 +1,71 @@
+name: Build Jellyfin Kiosk Appliance Image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/refenv/cijoe-docker:latest
+      options: >
+        --device=/dev/kvm
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Install
+      run: make deps
+
+    - name: Build
+      run: make build
+
+    - name: Convert to compressed raw
+      run: |
+        DISK="$HOME/system_imaging/disk/jkab-x86_64"
+        qemu-img convert -O raw "$DISK.qcow2" "$DISK.raw"
+        gzip "$DISK.raw"
+
+    - name: Upload disk image
+      uses: actions/upload-artifact@v5
+      with:
+        name: jkab-x86_64
+        path: |
+          ~/system_imaging/disk/jkab-x86_64.qcow2
+          ~/system_imaging/disk/jkab-x86_64.raw.gz
+        compression-level: 0
+
+    - name: Upload cijoe report
+      if: always()
+      uses: actions/upload-artifact@v5
+      with:
+        name: cijoe-report
+        path: cijoe-output/
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v5
+
+    - name: Package cijoe report
+      run: zip -r cijoe-report.zip cijoe-report/
+
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          jkab-x86_64/jkab-x86_64.raw.gz
+          cijoe-report.zip

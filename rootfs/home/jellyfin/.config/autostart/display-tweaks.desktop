@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Display Tweaks
+Exec=/home/jellyfin/bin/display-tweaks.sh
+X-GNOME-Autostart-enabled=true
+Terminal=false

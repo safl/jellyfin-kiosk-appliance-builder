@@ -1,0 +1,119 @@
+#cloud-config
+
+hostname: jellyfin-tv
+timezone: Europe/Copenhagen
+
+growpart:
+  mode: auto
+  devices: ["/"]
+
+resize_rootfs: true
+
+bootcmd:
+  - sed -i '/^Components:/s/$/ contrib non-free/' /etc/apt/sources.list.d/debian.sources
+
+package_update: true
+package_upgrade: true
+
+chpasswd:
+  expire: false
+  users:
+  - {name: root, password: root, type: text}
+
+ssh_pwauth: true
+
+users:
+  - name: jellyfin
+    gecos: JKAB
+    groups: [sudo, audio, video, input, plugdev, render]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    plain_text_passwd: jellyfin
+
+packages:
+  - xfce4
+  - xfce4-goodies
+  - lightdm
+  - lightdm-gtk-greeter
+  - dbus-user-session
+  - xdotool
+  - cec-utils
+  - unclutter
+  - x11-xserver-utils
+  - mesa-utils
+  - psmisc
+  - network-manager
+  - network-manager-gnome
+  - firmware-linux-nonfree
+  - intel-media-va-driver-non-free
+  - intel-gpu-tools
+  - i965-va-driver-shaders
+  - va-driver-all
+  - vainfo
+  - mesa-va-drivers
+  - udisks2
+  - ntfs-3g
+  - exfatprogs
+  - curl
+  - python3
+  - ca-certificates
+  - openssh-server
+
+runcmd:
+  - mkdir -p /home/jellyfin/.config/autostart
+  - mkdir -p /home/jellyfin/bin
+  - chown -R jellyfin:jellyfin /home/jellyfin
+
+  # Jellyfin server (jellyfin-server, jellyfin-web, jellyfin-ffmpeg)
+  - mkdir -p /etc/apt/keyrings
+  - curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key -o /etc/apt/keyrings/jellyfin.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/jellyfin.gpg arch=amd64] https://repo.jellyfin.org/debian trixie main" > /etc/apt/sources.list.d/jellyfin.list
+  - apt-get update
+  - apt-get install -y jellyfin
+  - systemctl enable jellyfin
+  - usermod -aG render jellyfin || true
+  - usermod -aG video jellyfin || true
+
+  # Jellyfin Media Player (client) - native deb, latest release
+  - curl -fsSL "https://api.github.com/repos/jellyfin/jellyfin-media-player/releases/latest" | python3 -c "import sys,json; assets=json.load(sys.stdin)['assets']; url=next(a['browser_download_url'] for a in assets if 'trixie' in a['name']); print(url)" | xargs curl -fsSL -o /tmp/jellyfin-media-player.deb
+  - apt-get install -y /tmp/jellyfin-media-player.deb
+
+  - systemctl set-default graphical.target
+  - systemctl enable lightdm
+  - systemctl restart systemd-logind
+  - systemctl restart ssh
+
+  # Switch to NetworkManager (cloud image uses ifupdown)
+  - systemctl disable networking
+  - systemctl enable NetworkManager
+
+  # Disable all automatic updates
+  - systemctl disable apt-daily.timer apt-daily-upgrade.timer || true
+  - systemctl mask apt-daily.service apt-daily-upgrade.service || true
+  - apt-get remove -y unattended-upgrades || true
+
+  - udevadm control --reload-rules
+  - systemctl enable serial-getty@ttyS0.service
+
+  # Prevent boot failure when EFI partition is absent (BIOS boot)
+  - sed -i 's|.*boot/efi.*|# &|' /etc/fstab
+
+  # Sample media for testing playback
+  - mkdir -p /media/sample
+  - curl -fsSL -o /media/sample/Big_Buck_Bunny_Trailer.mp4 "https://download.blender.org/peach/trailer/trailer_480p.mov"
+
+  # Clean up for smaller image
+  - apt-get clean
+  - rm -rf /var/lib/apt/lists/*
+  - rm -rf /tmp/*
+  - fstrim -av || true
+
+  - touch /etc/cloud/cloud-init.disabled
+
+final_message: "Jellyfin kiosk appliance provisioned after $UPTIME seconds"
+power_state:
+  mode: poweroff
+  message: "Provisioning complete, shutting down"
+  timeout: 120
+  condition: true

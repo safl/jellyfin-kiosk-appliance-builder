@@ -1,0 +1,2 @@
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1001", MODE="0666", GROUP="plugdev", SYMLINK+="cec%n"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", MODE="0666", GROUP="plugdev", SYMLINK+="cec%n"
