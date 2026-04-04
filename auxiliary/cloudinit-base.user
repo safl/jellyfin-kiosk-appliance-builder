@@ -57,6 +57,8 @@ packages:
   - exfatprogs
   - curl
   - python3
+  - yad
+  - plymouth-themes
   - ca-certificates
   - openssh-server
 
@@ -95,6 +97,12 @@ runcmd:
 
   - udevadm control --reload-rules
   - systemctl enable serial-getty@ttyS0.service
+
+  # Smooth boot: Plymouth splash + quiet kernel
+  - plymouth-set-default-theme spinner
+  - update-initramfs -u
+  - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+  - update-grub || true
 
   # Prevent boot failure when EFI partition is absent (BIOS boot)
   - sed -i 's|.*boot/efi.*|# &|' /etc/fstab

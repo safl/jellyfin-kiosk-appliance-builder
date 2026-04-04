@@ -5,6 +5,14 @@ AUTH_HEADER='MediaBrowser Client="JKAB", Device="JKAB", DeviceId="jkab", Version
 
 LIBRARY_OPTS='{"SaveLocalMetadata":true,"SaveSubtitlesWithMedia":true,"SaveLyricsWithMedia":true,"SaveTrickplayWithMedia":true}'
 
+# Show splash screen while waiting for the server
+yad --fullscreen --no-buttons --no-escape --undecorated \
+    --text-align=center --justify=center \
+    --text="\n\n\n\n\nStarting Jellyfin..." \
+    --text-info --fore="#ffffff" --back="#101010" \
+    --fontname="Sans 24" &
+SPLASH_PID=$!
+
 # Wait for server to be ready
 for i in $(seq 1 30); do
     curl -sf "$SERVER/System/Ping" >/dev/null 2>&1 && break
@@ -54,6 +62,10 @@ if curl -sf "$SERVER/Startup/Configuration" >/dev/null 2>&1; then
             -d "$LIBRARY_OPTS" >/dev/null 2>&1
     fi
 fi
+
+# Kill splash
+kill "$SPLASH_PID" 2>/dev/null
+wait "$SPLASH_PID" 2>/dev/null
 
 # Auto-detect scale factor based on resolution
 SCALE=1
