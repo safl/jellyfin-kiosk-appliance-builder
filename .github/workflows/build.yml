@@ -32,7 +32,7 @@ jobs:
       run: |
         DISK="$HOME/system_imaging/disk/jkab-x86_64"
         qemu-img convert -O raw "$DISK.qcow2" "$DISK.raw"
-        gzip "$DISK.raw"
+        gzip -9 "$DISK.raw"
 
     - name: Upload disk image
       uses: actions/upload-artifact@v5
@@ -67,5 +67,6 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
+          jkab-x86_64/jkab-x86_64.qcow2
           jkab-x86_64/jkab-x86_64.raw.gz
           cijoe-report.zip
