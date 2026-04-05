@@ -33,7 +33,6 @@ users:
 
 packages:
   - xfce4
-  - xfce4-goodies
   - lightdm
   - lightdm-gtk-greeter
   - dbus-user-session
@@ -41,16 +40,11 @@ packages:
   - cec-utils
   - unclutter
   - x11-xserver-utils
-  - mesa-utils
-  - psmisc
   - network-manager
   - network-manager-gnome
   - firmware-linux-nonfree
   - intel-media-va-driver-non-free
-  - intel-gpu-tools
   - i965-va-driver-shaders
-  - va-driver-all
-  - vainfo
   - mesa-va-drivers
   - udisks2
   - ntfs-3g

@@ -62,6 +62,18 @@ using [cijoe](https://github.com/refenv/cijoe).
 
    Jellyfin login: **Jellyfin** / **jellyfin**
 
+## Install extras
+
+The image ships without diagnostic tools and XFCE extras to keep the size down.
+To install them after flashing, SSH in and run:
+
+```bash
+jkab-install-extras.sh
+```
+
+This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, `vainfo`,
+and `xfce4-goodies`.
+
 ## Build from source
 
 ### Prerequisites
