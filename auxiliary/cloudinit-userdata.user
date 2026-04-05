@@ -33,7 +33,6 @@ users:
 
 packages:
   - xfce4
-  - xfce4-goodies
   - lightdm
   - lightdm-gtk-greeter
   - dbus-user-session
@@ -41,21 +40,19 @@ packages:
   - cec-utils
   - unclutter
   - x11-xserver-utils
-  - mesa-utils
-  - psmisc
   - network-manager
   - network-manager-gnome
   - firmware-linux-nonfree
   - intel-media-va-driver-non-free
-  - intel-gpu-tools
   - i965-va-driver-shaders
-  - va-driver-all
-  - vainfo
   - mesa-va-drivers
   - udisks2
   - ntfs-3g
   - exfatprogs
   - curl
+  - python3
+  - yad
+  - plymouth-themes
   - ca-certificates
   - openssh-server
 
@@ -74,8 +71,8 @@ runcmd:
   - usermod -aG render jellyfin || true
   - usermod -aG video jellyfin || true
 
-  # Jellyfin Media Player (client) - native deb
-  - curl -fsSL https://github.com/jellyfin/jellyfin-media-player/releases/latest/download/jellyfin-media-player_1.12.0-trixie.deb -o /tmp/jellyfin-media-player.deb
+  # Jellyfin Media Player (client) - native deb, latest release
+  - curl -fsSL "https://api.github.com/repos/jellyfin/jellyfin-media-player/releases/latest" | python3 -c "import sys,json; assets=json.load(sys.stdin)['assets']; url=next(a['browser_download_url'] for a in assets if 'trixie' in a['name']); print(url)" | xargs curl -fsSL -o /tmp/jellyfin-media-player.deb
   - apt-get install -y /tmp/jellyfin-media-player.deb
 
   - systemctl set-default graphical.target
@@ -93,7 +90,14 @@ runcmd:
   - apt-get remove -y unattended-upgrades || true
 
   - udevadm control --reload-rules
+  - systemctl enable jkab-mount-all.service
   - systemctl enable serial-getty@ttyS0.service
+
+  # Smooth boot: Plymouth splash + quiet kernel
+  - plymouth-set-default-theme spinner
+  - update-initramfs -u
+  - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+  - update-grub || true
 
   # Prevent boot failure when EFI partition is absent (BIOS boot)
   - sed -i 's|.*boot/efi.*|# &|' /etc/fstab
@@ -146,6 +150,21 @@ write_files:
       HandlePowerKey=poweroff
       HandlePowerKeyLongPress=poweroff
       HandleLidSwitch=ignore
+
+  - path: /etc/systemd/system/jkab-mount-all.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Mount all block devices with filesystems
+      After=local-fs.target
+      
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/jkab-mount-all.sh
+      
+      [Install]
+      WantedBy=multi-user.target
 
   - path: /etc/udev/rules.d/90-automount-media.rules
     owner: root:root
@@ -209,6 +228,19 @@ write_files:
       X-GNOME-Autostart-enabled=true
       Terminal=false
 
+  - path: /home/jellyfin/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-power-manager.xml
+    owner: jellyfin:jellyfin
+    permissions: "0644"
+    defer: true
+    content: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <channel name="xfce4-power-manager" version="1.0">
+        <property name="xfce4-power-manager" type="empty">
+          <property name="power-button-action" type="uint" value="4"/>
+          <property name="dpms-enabled" type="bool" value="false"/>
+        </property>
+      </channel>
+
   - path: /home/jellyfin/.xsessionrc
     owner: jellyfin:jellyfin
     permissions: "0644"
@@ -260,6 +292,14 @@ write_files:
       
       LIBRARY_OPTS='{"SaveLocalMetadata":true,"SaveSubtitlesWithMedia":true,"SaveLyricsWithMedia":true,"SaveTrickplayWithMedia":true}'
       
+      # Show splash screen while waiting for the server
+      yad --fullscreen --no-buttons --no-escape --undecorated \
+          --text-align=center --justify=center \
+          --text="\n\n\n\n\nStarting Jellyfin..." \
+          --text-info --fore="#ffffff" --back="#101010" \
+          --fontname="Sans 24" &
+      SPLASH_PID=$!
+      
       # Wait for server to be ready
       for i in $(seq 1 30); do
           curl -sf "$SERVER/System/Ping" >/dev/null 2>&1 && break
@@ -310,7 +350,18 @@ write_files:
           fi
       fi
       
-      exec jellyfinmediaplayer --fullscreen --scale-factor=2
+      # Kill splash
+      kill "$SPLASH_PID" 2>/dev/null
+      wait "$SPLASH_PID" 2>/dev/null
+      
+      # Auto-detect scale factor based on resolution
+      SCALE=1
+      RES=$(xrandr 2>/dev/null | grep '\*' | head -1 | awk '{print $1}' | cut -d'x' -f1)
+      if [ "${RES:-0}" -ge 3840 ]; then
+          SCALE=2
+      fi
+      
+      exec jellyfinmediaplayer --fullscreen --scale-factor="$SCALE"
 
   - path: /usr/local/bin/jkab-automount.sh
     owner: root:root
@@ -324,6 +375,41 @@ write_files:
       
       mkdir -p "$MOUNT"
       mount "$DEVICE" "$MOUNT"
+
+  - path: /usr/local/bin/jkab-install-extras.sh
+    owner: root:root
+    permissions: "0644"
+    content: |
+      #!/usr/bin/env bash
+      # Install optional diagnostic and debugging packages
+      set -e
+      
+      sudo apt-get update
+      sudo apt-get install -y \
+        intel-gpu-tools \
+        mesa-utils \
+        psmisc \
+        va-driver-all \
+        vainfo \
+        xfce4-goodies
+      
+      echo "Done — extras installed."
+
+  - path: /usr/local/bin/jkab-mount-all.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # Mount all unmounted block devices with filesystems
+      for DEV in $(lsblk -rno NAME,FSTYPE | awk '$2 != "" {print $1}'); do
+          DEVICE="/dev/$DEV"
+          # Skip if already mounted or if it's the root/boot device
+          findmnt -n "$DEVICE" >/dev/null 2>&1 && continue
+          LABEL=$(blkid -s LABEL -o value "$DEVICE" 2>/dev/null || echo "$DEV")
+          MOUNT="/media/${LABEL}"
+          mkdir -p "$MOUNT"
+          mount "$DEVICE" "$MOUNT" 2>/dev/null
+      done
 
   - path: /usr/local/bin/jkab-umount.sh
     owner: root:root

@@ -2,8 +2,8 @@
 # Install optional diagnostic and debugging packages
 set -e
 
-sudo apt-get update
-sudo apt-get install -y \
+sudo apt-get update -q
+sudo apt-get install -qy \
   intel-gpu-tools \
   mesa-utils \
   psmisc \

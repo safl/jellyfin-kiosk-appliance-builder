@@ -91,6 +91,22 @@ make clean     # remove build artifacts
 
 The baked qcow2 image will be at `~/system_imaging/disk/jkab-x86_64.qcow2`.
 
+### Run locally
+
+Requires a built image (`make build`). Boots
+`~/system_imaging/disk/jkab-x86_64.qcow2` in QEMU with a SPICE display:
+
+```bash
+make run
+```
+
+Then connect with a SPICE client on port 5930:
+
+```bash
+sudo apt-get install -qy virt-viewer
+remote-viewer spice://localhost:5930
+```
+
 ### Configuration
 
 Edit `configs/config.toml` to adjust:
