@@ -2,7 +2,7 @@ DISK_IMAGE = $(HOME)/system_imaging/disk/jkab-x86_64.qcow2
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps build clean
+.PHONY: help deps build run clean
 
 help:
 	@echo "JKAB - Jellyfin Kiosk Appliance Builder"
@@ -10,6 +10,7 @@ help:
 	@echo "Targets:"
 	@echo "  deps     Install build dependencies (cijoe via pipx)"
 	@echo "  build    Build the appliance disk image"
+	@echo "  run      Boot the appliance in QEMU with display"
 	@echo "  clean    Remove build artifacts"
 	@echo ""
 	@echo "Output: $(DISK_IMAGE)"
@@ -19,6 +20,9 @@ deps:
 
 build:
 	cijoe tasks/build.yaml --monitor -c configs/config.toml
+
+run:
+	cijoe tasks/run.yaml --monitor -c configs/config.toml
 
 clean:
 	rm -rf cijoe-output cijoe-archive

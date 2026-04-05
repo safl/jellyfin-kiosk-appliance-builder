@@ -1,0 +1,21 @@
+---
+doc: |
+  Run the Jellyfin Kiosk Appliance
+  ================================
+
+  Boot the baked appliance image in QEMU with a graphical display.
+  Blocks until the guest is shut down or the window is closed.
+
+  Requires a built image — run ``make build`` first.
+
+steps:
+- name: guest_initialize
+  uses: qemu.guest_initialize
+  with:
+    guest_name: jkab-x86_64
+    system_image_name: jkab-x86_64
+
+- name: guest_run
+  uses: guest_run
+  with:
+    guest_name: jkab-x86_64
