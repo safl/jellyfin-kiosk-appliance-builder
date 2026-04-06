@@ -1,0 +1,53 @@
+---
+doc: |
+  Test the Jellyfin Kiosk Appliance
+  =================================
+
+  Boot the baked appliance image in QEMU and run the test suite.
+  Requires a built image — run ``make build`` first.
+
+steps:
+- name: guest_kill_stale
+  uses: qemu.guest_kill
+  with:
+    guest_name: jkab-dk-x86_64
+
+- name: guest_initialize
+  uses: qemu.guest_initialize
+  with:
+    guest_name: jkab-dk-x86_64
+    system_image_name: jkab-dk-x86_64
+
+- name: guest_start
+  uses: qemu.guest_start
+  with:
+    guest_name: jkab-dk-x86_64
+
+- name: guest_wait_start
+  uses: core.wait_for_transport
+  with:
+    transport_name: qemu_guest
+    timeout: 300
+
+- name: testrunner
+  uses: core.testrunner
+  with:
+    run_local: true
+    random_order: false
+    args: "tests/"
+
+- name: guest_shutdown
+  run: |
+    nohup shutdown -h now &
+
+- name: wait_down
+  uses: core.wait_for_transport
+  with:
+    transport_name: qemu_guest
+    state: down
+    timeout: 60
+
+- name: guest_kill
+  uses: qemu.guest_kill
+  with:
+    guest_name: jkab-dk-x86_64

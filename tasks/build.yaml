@@ -8,12 +8,9 @@ doc: |
   The workflow:
 
   1. Downloads the Debian 13 cloud image
-  2. Injects cloud-init config (XFCE, Jellyfin Media Player, HDMI CEC)
+  2. Injects cloud-init config (openbox, Jellyfin Media Player, HDMI CEC)
   3. Boots QEMU, cloud-init provisions everything, VM shuts down
   4. Produces a baked qcow2 disk image ready to deploy
-
-  The resulting image auto-logs in and launches Jellyfin Media Player in
-  fullscreen with HDMI CEC support via pulse-eight USB adapter.
 
 steps:
 - name: gen_userdata
@@ -23,61 +20,4 @@ steps:
   uses: diskimage_build
   with:
     image_name: jkab-dk-x86_64
-
-- name: guest_initialize
-  uses: qemu.guest_initialize
-  with:
-    guest_name: jkab-dk-x86_64
-    system_image_name: jkab-dk-x86_64
-
-- name: guest_start
-  uses: qemu.guest_start
-  with:
-    guest_name: jkab-dk-x86_64
-
-- name: guest_wait_start
-  uses: core.wait_for_transport
-  with:
-    transport_name: qemu_guest
-    timeout: 300
-
-- name: verify
-  run: |
-    dpkg -l | grep jellyfin-media-player
-    dpkg -l | grep jellyfin-server
-    dpkg -l | grep jellyfin-ffmpeg
-    systemctl is-enabled jellyfin
-    dpkg -l | grep cec-utils
-    dpkg -l | grep openbox
-    dpkg -l | grep xdotool
-    dpkg -l | grep unclutter
-    dpkg -l | grep udisks2
-    which xdotool
-    cat /etc/systemd/system/getty@tty1.service.d/autologin.conf
-    cat /home/jellyfin/.bash_profile
-    cat /home/jellyfin/.xinitrc
-    cat /home/jellyfin/.config/openbox/autostart
-    cat /etc/udev/rules.d/99-pulse-eight-cec.rules
-    cat /etc/udev/rules.d/90-automount-media.rules
-    ls -la /home/jellyfin/bin/cec-jellyfin.sh
-    ls -la /home/jellyfin/bin/jellyfin-start.sh
-    ls -la /usr/local/bin/jkab-automount.sh
-    ls -la /usr/local/bin/jkab-umount.sh
-    cat /etc/jkab.conf
-
-- name: guest_shutdown
-  run: |
-    nohup shutdown -h now &
-
-- name: wait_down
-  uses: core.wait_for_transport
-  with:
-    transport_name: qemu_guest
-    state: down
-    timeout: 60
-
-- name: guest_kill
-  uses: qemu.guest_kill
-  with:
-    guest_name: jkab-dk-x86_64
 

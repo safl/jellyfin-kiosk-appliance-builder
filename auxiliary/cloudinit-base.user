@@ -78,9 +78,10 @@ runcmd:
   # Prevent boot failure when EFI partition is absent (BIOS boot)
   - sed -i 's|.*boot/efi.*|# &|' /etc/fstab
 
-  # Sample media for testing playback
-  - mkdir -p /media/sample
-  - curl -fsSL -o /media/sample/Big_Buck_Bunny_Trailer.mp4 "https://download.blender.org/peach/trailer/trailer_480p.mov"
+  # Sample media for testing playback (Blender open movies, Creative Commons)
+  - mkdir -p /media/Misc
+  - curl -fsSL -o "/media/Misc/Sintel (2010).mp4" "https://download.blender.org/durian/trailer/sintel_trailer-720p.mp4"
+  - curl -fsSL -o "/media/Misc/Big Buck Bunny (2008).mp4" "https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4"
 
   # Clean up for smaller image
   - apt-get clean

@@ -9,6 +9,11 @@ doc: |
   Requires a built image — run ``make build`` first.
 
 steps:
+- name: guest_kill
+  uses: qemu.guest_kill
+  with:
+    guest_name: jkab-dk-x86_64
+
 - name: guest_initialize
   uses: qemu.guest_initialize
   with:

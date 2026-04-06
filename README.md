@@ -100,9 +100,10 @@ This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, and `vain
 ### Build
 
 ```bash
-make deps      # install build dependencies (cijoe via pipx)
-make build     # build the disk image
-make clean     # remove build artifacts
+make deps         # install build dependencies (cijoe via pipx)
+make build        # build the disk image
+make test         # run test suite on the built image
+make clean        # remove build artifacts
 ```
 
 The baked qcow2 image will be at `~/system_imaging/disk/jkab-dk-x86_64.qcow2`.
@@ -112,7 +113,7 @@ The baked qcow2 image will be at `~/system_imaging/disk/jkab-dk-x86_64.qcow2`.
 Requires a built image (`make build`). Boots the image in QEMU with a SPICE display:
 
 ```bash
-make run
+make interactive
 ```
 
 Then connect with a SPICE client on port 5930:
