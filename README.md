@@ -20,7 +20,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 - **Client**: Jellyfin Media Player in fullscreen (native deb)
 - **Jellyfin user**: `jellyfin` / `jellyfin` (created automatically on first boot)
 - **Metadata**: saved alongside media files (survives image reflash)
-- **Sample**: Big Buck Bunny trailer included for playback testing
+- **Sample**: Sintel and Big Buck Bunny included for playback testing
 
 ### Display
 
@@ -33,7 +33,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 - **Libraries**: Movies and Shows libraries created on first boot, both pointing to `/media/`
 - **Metadata**: fetched in the configured locale and saved alongside media files (survives reflash)
-- **Auto-mount**: USB/SD drives auto-mount to `/media/<device>` via udev rules and udisks2
+- **Auto-mount**: USB/SD drives auto-mount to `/media/<label>` via udev rules
 - **Library scan**: Jellyfin server detects new mounts and rescans automatically
 - **Filesystem**: NTFS and exFAT support for external media
 
@@ -61,7 +61,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 3. Download and write the appliance image directly to the drive (replace `/dev/nvme0n1`):
 
    ```bash
-   wget -qO- https://github.com/safl/jellyfin-kiosk-appliance-builder/releases/latest/download/jkab-x86_64.raw.gz | \
+   wget -qO- https://github.com/safl/jellyfin-kiosk-appliance-builder/releases/latest/download/jkab-dk-x86_64.raw.gz | \
      gunzip | sudo dd of=/dev/nvme0n1 bs=4M status=progress
    ```
 
