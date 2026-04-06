@@ -22,18 +22,18 @@ steps:
 - name: diskimage_build
   uses: diskimage_build
   with:
-    image_name: jkab-x86_64
+    image_name: jkab-dk-x86_64
 
 - name: guest_initialize
   uses: qemu.guest_initialize
   with:
-    guest_name: jkab-x86_64
-    system_image_name: jkab-x86_64
+    guest_name: jkab-dk-x86_64
+    system_image_name: jkab-dk-x86_64
 
 - name: guest_start
   uses: qemu.guest_start
   with:
-    guest_name: jkab-x86_64
+    guest_name: jkab-dk-x86_64
 
 - name: guest_wait_start
   uses: core.wait_for_transport
@@ -48,19 +48,22 @@ steps:
     dpkg -l | grep jellyfin-ffmpeg
     systemctl is-enabled jellyfin
     dpkg -l | grep cec-utils
-    dpkg -l | grep xfce4
+    dpkg -l | grep openbox
     dpkg -l | grep xdotool
     dpkg -l | grep unclutter
     dpkg -l | grep udisks2
-    systemctl is-enabled lightdm
-    cat /etc/lightdm/lightdm.conf.d/90-autologin.conf
+    which xdotool
+    cat /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    cat /home/jellyfin/.bash_profile
+    cat /home/jellyfin/.xinitrc
+    cat /home/jellyfin/.config/openbox/autostart
     cat /etc/udev/rules.d/99-pulse-eight-cec.rules
     cat /etc/udev/rules.d/90-automount-media.rules
     ls -la /home/jellyfin/bin/cec-jellyfin.sh
-    ls -la /home/jellyfin/bin/display-tweaks.sh
     ls -la /home/jellyfin/bin/jellyfin-start.sh
     ls -la /usr/local/bin/jkab-automount.sh
     ls -la /usr/local/bin/jkab-umount.sh
+    cat /etc/jkab.conf
 
 - name: guest_shutdown
   run: |
@@ -76,5 +79,5 @@ steps:
 - name: guest_kill
   uses: qemu.guest_kill
   with:
-    guest_name: jkab-x86_64
+    guest_name: jkab-dk-x86_64
 

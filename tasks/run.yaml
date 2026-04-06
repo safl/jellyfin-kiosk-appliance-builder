@@ -12,10 +12,10 @@ steps:
 - name: guest_initialize
   uses: qemu.guest_initialize
   with:
-    guest_name: jkab-x86_64
-    system_image_name: jkab-x86_64
+    guest_name: jkab-dk-x86_64
+    system_image_name: jkab-dk-x86_64
 
 - name: guest_run
   uses: guest_run
   with:
-    guest_name: jkab-x86_64
+    guest_name: jkab-dk-x86_64

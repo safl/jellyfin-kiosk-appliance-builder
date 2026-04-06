@@ -8,7 +8,6 @@ sudo apt-get install -qy \
   mesa-utils \
   psmisc \
   va-driver-all \
-  vainfo \
-  xfce4-goodies
+  vainfo
 
 echo "Done — extras installed."

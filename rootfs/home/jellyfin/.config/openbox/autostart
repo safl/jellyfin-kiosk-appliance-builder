@@ -1,0 +1,16 @@
+# Disable screensaver and power management
+xset s off
+xset -dpms
+xset s noblank
+
+# Hide mouse cursor when idle
+unclutter --timeout 1 --jitter 4 &
+
+# HDMI CEC bridge
+/home/jellyfin/bin/cec-jellyfin.sh &
+
+# Launch Jellyfin Media Player (blocks until exit)
+/home/jellyfin/bin/jellyfin-start.sh
+
+# If JMP exits, kill openbox so X restarts via .bash_profile loop
+openbox --exit

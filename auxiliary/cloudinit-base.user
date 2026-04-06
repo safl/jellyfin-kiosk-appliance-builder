@@ -1,7 +1,7 @@
 #cloud-config
 
 hostname: jellyfin-tv
-timezone: Europe/Copenhagen
+timezone: __JKAB_TIMEZONE__
 
 growpart:
   mode: auto
@@ -11,9 +11,6 @@ resize_rootfs: true
 
 bootcmd:
   - sed -i '/^Components:/s/$/ contrib non-free/' /etc/apt/sources.list.d/debian.sources
-
-package_update: true
-package_upgrade: true
 
 chpasswd:
   expire: false
@@ -31,35 +28,15 @@ users:
     lock_passwd: false
     plain_text_passwd: jellyfin
 
-packages:
-  - xfce4
-  - lightdm
-  - lightdm-gtk-greeter
-  - dbus-user-session
-  - xdotool
-  - cec-utils
-  - unclutter
-  - x11-xserver-utils
-  - network-manager
-  - network-manager-gnome
-  - firmware-linux-nonfree
-  - intel-media-va-driver-non-free
-  - i965-va-driver-shaders
-  - mesa-va-drivers
-  - udisks2
-  - ntfs-3g
-  - exfatprogs
-  - curl
-  - python3
-  - yad
-  - plymouth-themes
-  - ca-certificates
-  - openssh-server
-
 runcmd:
-  - mkdir -p /home/jellyfin/.config/autostart
+  - mkdir -p /home/jellyfin/.config/openbox
   - mkdir -p /home/jellyfin/bin
   - chown -R jellyfin:jellyfin /home/jellyfin
+
+  # System packages
+  - apt-get update -q
+  - DEBIAN_FRONTEND=noninteractive apt-get upgrade -qy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+  - DEBIAN_FRONTEND=noninteractive apt-get install -qy openbox xinit x11-xserver-utils dbus-user-session unclutter cec-utils xdotool network-manager intel-media-va-driver-non-free i965-va-driver-shaders mesa-va-drivers udisks2 ntfs-3g exfatprogs curl python3 plymouth-themes ca-certificates openssh-server
 
   # Jellyfin server (jellyfin-server, jellyfin-web, jellyfin-ffmpeg)
   - mkdir -p /etc/apt/keyrings
@@ -75,8 +52,7 @@ runcmd:
   - curl -fsSL "https://api.github.com/repos/jellyfin/jellyfin-media-player/releases/latest" | python3 -c "import sys,json; assets=json.load(sys.stdin)['assets']; url=next(a['browser_download_url'] for a in assets if 'trixie' in a['name']); print(url)" | xargs curl -fsSL -o /tmp/jellyfin-media-player.deb
   - apt-get install -qy /tmp/jellyfin-media-player.deb
 
-  - systemctl set-default graphical.target
-  - systemctl enable lightdm
+  - systemctl set-default multi-user.target
   - systemctl restart systemd-logind
   - systemctl restart ssh
 
@@ -92,10 +68,11 @@ runcmd:
   - udevadm control --reload-rules
   - systemctl enable serial-getty@ttyS0.service
 
-  # Smooth boot: Plymouth splash + quiet kernel
+  # Smooth boot: Plymouth splash + quiet kernel (clear cloud image serial console defaults)
   - plymouth-set-default-theme spinner
   - update-initramfs -u
   - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+  - sed -i 's/GRUB_CMDLINE_LINUX="[^"]*"/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200"/' /etc/default/grub
   - update-grub || true
 
   # Prevent boot failure when EFI partition is absent (BIOS boot)

@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Jellyfin Media Player
-Exec=/home/jellyfin/bin/jellyfin-start.sh
-X-GNOME-Autostart-enabled=true
-Terminal=false

@@ -1,4 +1,5 @@
-DISK_IMAGE = $(HOME)/system_imaging/disk/jkab-x86_64.qcow2
+VARIANT ?= dk
+DISK_IMAGE = $(HOME)/system_imaging/disk/jkab-$(VARIANT)-x86_64.qcow2
 
 .DEFAULT_GOAL := help
 
@@ -13,16 +14,17 @@ help:
 	@echo "  run      Boot the appliance in QEMU with display"
 	@echo "  clean    Remove build artifacts"
 	@echo ""
+	@echo "Variant: $(VARIANT) (override with VARIANT=us, etc.)"
 	@echo "Output: $(DISK_IMAGE)"
 
 deps:
 	pipx install cijoe
 
 build:
-	cijoe tasks/build.yaml --monitor -c configs/config.toml
+	cijoe tasks/build.yaml --monitor -c configs/$(VARIANT).toml
 
 run:
-	cijoe tasks/run.yaml --monitor -c configs/config.toml
+	cijoe tasks/run.yaml --monitor -c configs/$(VARIANT).toml
 
 clean:
 	rm -rf cijoe-output cijoe-archive
