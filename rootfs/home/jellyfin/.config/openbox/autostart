@@ -6,8 +6,10 @@ xset s noblank
 # Hide mouse cursor when idle
 unclutter --timeout 1 --jitter 4 &
 
+# CEC-to-keyboard bridge (uses libcec like Kodi does)
+python3 /home/jellyfin/bin/jkab-cec-bridge.py &
+
 # Launch Jellyfin Media Player (blocks until exit)
-# JMP has built-in CEC support via libCEC
 /home/jellyfin/bin/jellyfin-start.sh
 
 # If JMP exits, kill openbox so X restarts via .bash_profile loop
