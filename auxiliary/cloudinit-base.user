@@ -72,7 +72,7 @@ runcmd:
   - plymouth-set-default-theme spinner
   - update-initramfs -u
   - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*"/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
-  - sed -i 's/GRUB_CMDLINE_LINUX="[^"]*"/GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200"/' /etc/default/grub
+  - sed -i 's/GRUB_CMDLINE_LINUX="[^"]*"/GRUB_CMDLINE_LINUX=""/' /etc/default/grub
   - update-grub || true
 
   # Prevent boot failure when EFI partition is absent (BIOS boot)
