@@ -1,16 +1,11 @@
-# Disable screensaver and power management
 xset s off
 xset -dpms
 xset s noblank
-
-# Hide mouse cursor when idle
 unclutter --timeout 1 --jitter 4 &
-
-# CEC-to-keyboard bridge (uses libcec like Kodi does)
+pkill -9 -f jkab-cec-bridge 2>/dev/null
+sleep 1
 python3 /home/jellyfin/bin/jkab-cec-bridge.py &
-
-# Launch Jellyfin Media Player (blocks until exit)
-/home/jellyfin/bin/jellyfin-start.sh
-
-# If JMP exits, kill openbox so X restarts via .bash_profile loop
-openbox --exit
+while true; do
+    python3 /home/jellyfin/bin/jkab-player.py
+    sleep 1
+done
