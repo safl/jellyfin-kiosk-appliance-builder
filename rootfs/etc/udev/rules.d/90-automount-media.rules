@@ -1,2 +1,2 @@
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", RUN+="/usr/local/bin/jkab-automount.sh %k"
-ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", RUN+="/usr/local/bin/jkab-umount.sh %k"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/jkab-automount.sh %k"
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/jkab-umount.sh %k"
