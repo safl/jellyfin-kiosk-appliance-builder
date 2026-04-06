@@ -30,7 +30,7 @@ def on_keypress(event, key, duration):
     name = KEY_MAP.get(key)
     if name:
         log(f"key {key:#04x} -> {name}")
-        subprocess.run(["xdotool", "key", name], env={"DISPLAY": ":0"})
+        subprocess.run(["xdotool", "key", name])
     else:
         log(f"key {key:#04x} UNMAPPED")
 
@@ -42,5 +42,10 @@ log("Callback registered")
 cec.set_active_source()
 log("Active source set — waiting for keys")
 
+count = 0
 while True:
     time.sleep(1)
+    count += 1
+    if count % 30 == 0:
+        cec.set_active_source()
+        log("Re-asserted active source")
