@@ -8,29 +8,44 @@ Plug in a USB drive or SD card with media files and they appear in the library
 automatically.
 
 Based on Debian 13 (trixie) cloud image, provisioned with cloud-init and built
-using [cijoe](https://github.com/refenv/cijoe).
+using [cijoe](https://github.com/refenv/cijoe). Currently targets x86_64
+NUC-style hardware with Intel GPU drivers. Could be expanded, upon request,
+to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ## What's in the image
 
-- **System user**: `jellyfin` / `jellyfin`
-  - XFCE4 auto-login via LightDM
-  - Passwordless sudo
-- **Jellyfin user**: `Jellyfin` / `jellyfin` (created automatically on first boot)
+### Jellyfin
+
 - **Server**: Jellyfin media server with optimized ffmpeg (auto-starts, auto-configured)
 - **Client**: Jellyfin Media Player in fullscreen (native deb)
-- **Network**: NetworkManager with tray applet for WiFi/Ethernet configuration
-- **HDMI CEC**: cec-client bridge translating TV remote keys to keyboard events
-- **Media**: USB/SD auto-mount to `/media/` and trigger library scan
+- **Jellyfin user**: `jellyfin` / `jellyfin` (created automatically on first boot)
 - **Metadata**: saved alongside media files (survives image reflash)
-- **Firmware**: non-free firmware for broad GPU/WiFi hardware support
-- **HiDPI**: auto-detects 4K displays and scales Jellyfin Media Player UI to 2x
-- **Display**: screensaver, DPMS, and screen blanking disabled; cursor hidden after 1s
-- **Power button**: clean shutdown via systemd-logind
-- **Audio**: PulseAudio
+- **Sample**: Big Buck Bunny trailer included for playback testing
+
+### Display
+
+- **Kiosk**: openbox window manager, no desktop environment
+- **HiDPI**: auto-detects 4K displays and scales UI to 2x
+- **Screensaver/DPMS**: disabled, cursor hidden after 1s idle
+- **HDMI CEC**: cec-client bridge translating TV remote keys to keyboard events
+
+### Library & Media
+
+- **Libraries**: Movies and Shows libraries created on first boot, both pointing to `/media/`
+- **Metadata**: fetched in the configured locale and saved alongside media files (survives reflash)
+- **Auto-mount**: USB/SD drives auto-mount to `/media/<device>` via udev rules and udisks2
+- **Library scan**: Jellyfin server detects new mounts and rescans automatically
 - **Filesystem**: NTFS and exFAT support for external media
+
+### System
+
+- **System user**: `jellyfin` / `jellyfin` (auto-login, passwordless sudo)
+- **Network**: NetworkManager (configure via `nmtui` over SSH)
+- **Audio**: PulseAudio
+- **GPU**: Intel VA-API hardware video decoding
+- **Power button**: clean shutdown via systemd-logind
 - **Updates**: disabled — update by reflashing the image
 - **Debug**: SSH enabled (root/root)
-- **Sample**: Big Buck Bunny trailer included for playback testing
 
 ## Install
 
@@ -57,22 +72,23 @@ using [cijoe](https://github.com/refenv/cijoe).
    ```
 
 5. On first boot, the appliance auto-logs in, sets up the Jellyfin server,
-   and launches the media player. Plug in a USB drive or SD card with media
-   files — they auto-mount and appear in the library.
+   and launches the media player. On the first launch, connect to
+   `localhost:8096` and log in with **jellyfin** / **jellyfin**. The client
+   remembers the server on subsequent boots.
 
-   Jellyfin login: **Jellyfin** / **jellyfin**
+   Plug in a USB drive or SD card with media files — they auto-mount and
+   appear in the library.
 
 ## Install extras
 
-The image ships without diagnostic tools and XFCE extras to keep the size down.
+The image ships without diagnostic tools to keep the size down.
 To install them after flashing, SSH in and run:
 
 ```bash
 jkab-install-extras.sh
 ```
 
-This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, `vainfo`,
-and `xfce4-goodies`.
+This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, and `vainfo`.
 
 ## Build from source
 
@@ -89,12 +105,11 @@ make build     # build the disk image
 make clean     # remove build artifacts
 ```
 
-The baked qcow2 image will be at `~/system_imaging/disk/jkab-x86_64.qcow2`.
+The baked qcow2 image will be at `~/system_imaging/disk/jkab-dk-x86_64.qcow2`.
 
 ### Run locally
 
-Requires a built image (`make build`). Boots
-`~/system_imaging/disk/jkab-x86_64.qcow2` in QEMU with a SPICE display:
+Requires a built image (`make build`). Boots the image in QEMU with a SPICE display:
 
 ```bash
 make run
@@ -109,7 +124,8 @@ remote-viewer spice://localhost:5930
 
 ### Configuration
 
-Edit `configs/config.toml` to adjust:
+Edit `configs/dk.toml` (or create a new variant) to adjust:
 
-- **RAM/CPU**: `system_args.kwa` in `[qemu.guests.jkab-x86_64]`
+- **Locale**: `[jkab]` section (UI culture, metadata language, timezone, subtitle/audio prefs)
+- **RAM/CPU**: `system_args.kwa` in the `[qemu.guests.*]` section
 - **SSH port**: `system_args.tcp_forward`
