@@ -1,0 +1,19 @@
+[Unit]
+Description=JKAB Media Server
+Documentation=https://github.com/safl/jkab
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jellyfin
+Group=jellyfin
+ExecStart=/usr/bin/python3 /usr/local/bin/jkab-server.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jkab-server
+
+[Install]
+WantedBy=multi-user.target

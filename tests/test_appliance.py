@@ -15,18 +15,23 @@ from cijoe.core.command import Cijoe
 # --- Packages ---
 
 
-def test_jellyfin_media_player_installed(cijoe: Cijoe):
-    err, state = cijoe.run("dpkg -l jellyfin-media-player")
+def test_python3_installed(cijoe: Cijoe):
+    err, state = cijoe.run("dpkg -l python3")
     assert not err, state.output()
 
 
-def test_jellyfin_server_installed(cijoe: Cijoe):
-    err, state = cijoe.run("dpkg -l jellyfin-server")
+def test_python3_pygame_installed(cijoe: Cijoe):
+    err, state = cijoe.run("python3 -c 'import pygame; print(pygame.__version__)'")
     assert not err, state.output()
 
 
-def test_jellyfin_ffmpeg_installed(cijoe: Cijoe):
-    err, state = cijoe.run("dpkg -l jellyfin-ffmpeg7")
+def test_python3_flask_installed(cijoe: Cijoe):
+    err, state = cijoe.run("python3 -c 'import flask; print(flask.__version__)'")
+    assert not err, state.output()
+
+
+def test_mpv_installed(cijoe: Cijoe):
+    err, state = cijoe.run("which mpv")
     assert not err, state.output()
 
 
@@ -58,28 +63,28 @@ def test_udisks2_installed(cijoe: Cijoe):
 # --- Services ---
 
 
-def test_jellyfin_service_enabled(cijoe: Cijoe):
-    err, state = cijoe.run("systemctl is-enabled jellyfin")
+def test_jkab_server_service_enabled(cijoe: Cijoe):
+    err, state = cijoe.run("systemctl is-enabled jkab-server")
     assert not err
     assert "enabled" in state.output()
 
 
-def test_jellyfin_service_active(cijoe: Cijoe):
-    err, state = cijoe.run("systemctl is-active jellyfin")
+def test_jkab_server_service_active(cijoe: Cijoe):
+    err, state = cijoe.run("systemctl is-active jkab-server")
     assert not err
     assert "active" in state.output()
 
 
-def test_jellyfin_server_responds(cijoe: Cijoe):
-    """Wait up to 60s for server API to be ready, then check response."""
+def test_jkab_server_responds(cijoe: Cijoe):
+    """Wait up to 30s for jkab-server to be ready, then check health endpoint."""
     err, state = cijoe.run(
-        "for i in $(seq 1 30); do"
-        " curl -sf http://localhost:8096/System/Info/Public >/dev/null 2>&1 && break;"
+        "for i in $(seq 1 15); do"
+        " curl -sf http://localhost:8080/api/health >/dev/null 2>&1 && break;"
         " sleep 2; done;"
-        " curl -sf http://localhost:8096/System/Info/Public"
+        " curl -sf http://localhost:8080/api/health"
     )
-    assert not err, "Jellyfin server not responding after 60s"
-    assert "Version" in state.output()
+    assert not err, "jkab-server not responding after 30s"
+    assert "ok" in state.output()
 
 
 # --- Kiosk ---
@@ -108,10 +113,11 @@ def test_xinitrc(cijoe: Cijoe):
 def test_openbox_autostart(cijoe: Cijoe):
     err, state = cijoe.run("cat /home/jellyfin/.config/openbox/autostart")
     assert not err
-    assert "jellyfin-start.sh" in state.output()
-    assert "cec-jellyfin.sh" in state.output()
-    assert "unclutter" in state.output()
-    assert "xset s off" in state.output()
+    output = state.output()
+    assert "jkab-player.py" in output
+    assert "jkab-cec-bridge.py" in output
+    assert "unclutter" in output
+    assert "xset s off" in output
 
 
 # --- Locale ---
@@ -165,7 +171,9 @@ def test_logind_power_button(cijoe: Cijoe):
 def test_scripts_executable(cijoe: Cijoe):
     scripts = [
         "/home/jellyfin/bin/jellyfin-start.sh",
-        "/home/jellyfin/bin/cec-jellyfin.sh",
+        "/home/jellyfin/bin/jkab-player.py",
+        "/home/jellyfin/bin/jkab-cec-bridge.py",
+        "/usr/local/bin/jkab-server.py",
         "/usr/local/bin/jkab-automount.sh",
         "/usr/local/bin/jkab-umount.sh",
         "/usr/local/bin/jkab-install-extras.sh",
@@ -175,36 +183,20 @@ def test_scripts_executable(cijoe: Cijoe):
         assert not err, f"{script} is not executable"
 
 
-# --- Server setup ---
+# --- Media directories ---
 
 
-def test_wizard_completed(cijoe: Cijoe):
-    """Wait up to 90s for the first-boot setup to complete."""
-    err, state = cijoe.run(
-        "for i in $(seq 1 45); do"
-        " curl -sf http://localhost:8096/System/Info/Public 2>/dev/null"
-        " | python3 -c \"import sys,json; d=json.load(sys.stdin);"
-        " assert d['StartupWizardCompleted']\" 2>/dev/null && break;"
-        " sleep 2; done;"
-        " curl -sf http://localhost:8096/System/Info/Public"
-        " | python3 -c \"import sys,json; d=json.load(sys.stdin);"
-        " assert d['StartupWizardCompleted'], 'Wizard not completed'\""
-    )
-    assert not err, "Startup wizard not completed after 90s"
+def test_media_directories_exist(cijoe: Cijoe):
+    """Verify /media directory structure for Movies, Shows, Videos."""
+    for directory in ["/media", "/media/Movies", "/media/Shows", "/media/Videos"]:
+        err, state = cijoe.run(f"test -d {directory}")
+        assert not err, f"{directory} does not exist"
 
 
-def test_jellyfin_user_auth(cijoe: Cijoe):
-    err, state = cijoe.run(
-        "curl -sf -X POST http://localhost:8096/Users/AuthenticateByName"
-        " -H 'Content-Type: application/json'"
-        " -H 'Authorization: MediaBrowser Client=\"JKAB\", Device=\"JKAB\","
-        " DeviceId=\"jkab\", Version=\"1.0\"'"
-        " -d '{\"Username\":\"jellyfin\",\"Pw\":\"jellyfin\"}'"
-        " | python3 -c \"import sys,json; d=json.load(sys.stdin);"
-        " print(d['User']['Name'])\""
-    )
-    assert not err, "Failed to authenticate as jellyfin"
-    assert "jellyfin" in state.output()
+def test_jkab_cache_directory(cijoe: Cijoe):
+    """Verify cache directory for jkab-server progress tracking."""
+    err, state = cijoe.run("test -d /home/jellyfin/.cache/jkab")
+    assert not err, "/home/jellyfin/.cache/jkab does not exist"
 
 
 # --- Plymouth ---
