@@ -18,7 +18,7 @@ import urllib.request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-JKAB_VERSION = "v0.8.0"
+JKAB_VERSION = "v0.8.1"
 
 
 def breadcrumb_segments(path: str) -> list:
@@ -256,6 +256,7 @@ class UIRenderer:
         selected_tab: int = 0,
         tab_focus: bool = False,
         breadcrumb: Optional[list] = None,
+        hide_folder_labels: bool = False,
     ):
         """Render grid of items (posters). The tab bar is always shown when
         ``tabs`` is supplied; a breadcrumb is added below it when ``breadcrumb``
@@ -325,11 +326,19 @@ class UIRenderer:
                 text_rect = placeholder_surf.get_rect(center=(x + poster_w // 2, y + poster_h // 2))
                 self.screen.blit(placeholder_surf, text_rect)
 
-            # Label below poster: always for folders (user needs to know what
-            # they're entering) and episodes (SxxExx is the useful info), and
-            # for any item without artwork. Hidden only for movies whose
-            # poster already speaks for itself.
-            if is_folder or is_episode or poster_img is None:
+            # Label below poster:
+            # - episodes: always (SxxExx is the useful info)
+            # - no artwork: always (only way to identify the item)
+            # - folders: only when hide_folder_labels is False — used at the
+            #   top of Movies/Shows where covers are scraped and reliable.
+            #   Custom collections (Yoga, Documentaries, ...) keep their
+            #   folder labels because their art may be missing or generic.
+            show_label = (
+                is_episode
+                or poster_img is None
+                or (is_folder and not hide_folder_labels)
+            )
+            if show_label:
                 label_text = label if len(label) <= 26 else label[:25] + "…"
                 label_surf = self.font.render(label_text, True, self.TEXT)
                 self.screen.blit(label_surf, (x, y + poster_h + 12))
@@ -1031,11 +1040,15 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
             items = data["items"]
             selected = 0
 
+            collection_name = tabs[selected_tab]
+            hide_labels = collection_name.lower() in ("movies", "shows")
+
             while True:
                 ui.render_grid(
-                    tabs[selected_tab], items, selected, api,
+                    collection_name, items, selected, api,
                     tabs=tabs, selected_tab=selected_tab,
                     tab_focus=tab_focus,
+                    hide_folder_labels=hide_labels,
                 )
                 key = ui.wait_key()
 
