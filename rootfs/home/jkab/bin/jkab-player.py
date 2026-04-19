@@ -18,7 +18,26 @@ import urllib.request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-JKAB_VERSION = "v0.7.0"
+JKAB_VERSION = "v0.8.0"
+
+
+def breadcrumb_segments(path: str) -> list:
+    """Convert a /media-relative path into user-facing breadcrumb segments.
+
+    Drops the drive name (first segment) so the user sees the Collection
+    hierarchy rather than underlying storage. ``MEDIA/Shows/Columbo/Season 05``
+    becomes ``["Shows", "Columbo", "Season 05"]``.
+    """
+    if not path:
+        return []
+    parts = [p for p in path.split("/") if p]
+    return parts[1:] if len(parts) > 1 else parts
+
+
+def breadcrumb_for_item(item: dict) -> list:
+    """Breadcrumb segments for an item's containing folder (parent path)."""
+    parent = item.get("path", "").rsplit("/", 1)[0]
+    return breadcrumb_segments(parent)
 
 
 def item_label(item: dict) -> str:
@@ -158,7 +177,11 @@ class UIRenderer:
     ACCENT = (229, 9, 20)  # Netflix red (optional)
 
     def __init__(self):
-        pygame.init()
+        # Only init the subsystems we actually use — pygame.init() also
+        # opens the audio mixer and would grab the ALSA card, blocking
+        # WirePlumber from claiming HDMI output for mpv.
+        pygame.display.init()
+        pygame.font.init()
         pygame.mouse.set_visible(False)
 
         info = pygame.display.Info()
@@ -232,20 +255,20 @@ class UIRenderer:
         tabs: Optional[list] = None,
         selected_tab: int = 0,
         tab_focus: bool = False,
+        breadcrumb: Optional[list] = None,
     ):
-        """Render grid of items (posters), with optional Collections tab bar."""
+        """Render grid of items (posters). The tab bar is always shown when
+        ``tabs`` is supplied; a breadcrumb is added below it when ``breadcrumb``
+        is non-empty (drilling down)."""
         self.screen.fill(self.BG)
 
         s = max(1, self.height / 1080)
         title_h = int(90 * s)
+        crumb_h = int(50 * s)
 
-        if tabs:
-            self._render_tab_bar(tabs, selected_tab, title_h, tab_focus)
-        else:
-            title_surf = self.font_title.render(title, True, self.TEXT)
-            self.screen.blit(title_surf, (40, (title_h - title_surf.get_height()) // 2))
-
-        start_y = title_h + int(40 * s)
+        header_h = self._render_header(title, tabs, selected_tab, tab_focus,
+                                       breadcrumb, title_h, crumb_h)
+        start_y = header_h + int(40 * s)
         grid_x_start = self.grid_margin
         cols = self.grid_cols
         poster_w = self.poster_w
@@ -363,11 +386,53 @@ class UIRenderer:
                 )
                 x += gap
 
-        lib_surf = self.font_small.render("Media Library", True, self.DIM)
-        self.screen.blit(
-            lib_surf,
-            (self.width - lib_surf.get_width() - pad, (height - lib_surf.get_height()) // 2),
-        )
+    def _render_header(
+        self, title: str, tabs: Optional[list], selected_tab: int,
+        tab_focus: bool, breadcrumb: Optional[list],
+        tab_h: int, crumb_h: int,
+    ) -> int:
+        """Render the top header (tab bar + optional breadcrumb).
+        Returns the total Y offset used by the header.
+        """
+        if tabs:
+            self._render_tab_bar(tabs, selected_tab, tab_h, tab_focus)
+            top = tab_h
+        else:
+            title_surf = self.font_title.render(title, True, self.TEXT)
+            self.screen.blit(title_surf, (40, (tab_h - title_surf.get_height()) // 2))
+            top = tab_h
+        if breadcrumb:
+            self._render_breadcrumb(breadcrumb, top, crumb_h)
+            top += crumb_h
+        return top
+
+    def _render_breadcrumb(self, segments: list, top: int, height: int):
+        """Render a slim navigation breadcrumb starting at ``top``.
+
+        Sits below the persistent Collections tab bar, so the user always
+        sees both their current Collection (in the bar) and their path
+        within that Collection (here). Last segment is white; ancestors
+        are dimmed and joined by `›` glyphs.
+        """
+        s = max(1, self.height / 1080)
+        pygame.draw.rect(self.screen, (22, 22, 22), (0, top, self.width, height))
+
+        pad = int(28 * s)
+        gap = int(10 * s)
+        sep_text = "\u203A"
+        font = self.font_small
+        y_text = top + (height - font.get_height()) // 2
+        x = pad
+        for i, seg in enumerate(segments):
+            is_last = i == len(segments) - 1
+            color = self.TEXT if is_last else self.DIM
+            seg_surf = font.render(seg, True, color)
+            self.screen.blit(seg_surf, (x, y_text))
+            x += seg_surf.get_width()
+            if not is_last:
+                sep_surf = font.render(sep_text, True, (90, 90, 90))
+                self.screen.blit(sep_surf, (x + gap, y_text))
+                x += sep_surf.get_width() + gap * 2
 
     def _render_hint_bar(self, hint_text: str):
         """Draw the bottom hint bar with the JKAB version anchored bottom-right.
@@ -403,19 +468,39 @@ class UIRenderer:
         )
         self.screen.blit(ver_surf, (ver_x, bar_top + pad_y))
 
-    def render_details(self, item: dict, api: MediaServerAPI, action_text: str = "Play"):
-        """Render item details (poster + metadata)."""
+    def render_details(
+        self, item: dict, api: MediaServerAPI, action_text: str = "Play",
+        tabs: Optional[list] = None, selected_tab: int = 0,
+        breadcrumb: Optional[list] = None, tab_focus: bool = False,
+    ):
+        """Render item details (poster + metadata) with persistent tab bar
+        and optional breadcrumb. The Play button is the focused element
+        unless ``tab_focus`` is True."""
         self.screen.fill(self.BG)
+
+        s = max(1, self.height / 1080)
+        tab_h = int(90 * s)
+        crumb_h = int(50 * s)
+        header_h = self._render_header(
+            item.get("name", ""), tabs, selected_tab, tab_focus,
+            breadcrumb, tab_h, crumb_h,
+        )
+        top_offset = header_h + int(20 * s)
 
         poster_img = None
         if item.get("poster"):
             poster_img = self._load_image(api.get_image_url(item["poster"]))
 
-        # Poster on left (60% width)
+        hint_bar_h_estimate = int(70 * s)
+        bottom_margin = int(40 * s)
+        available_h = self.height - top_offset - hint_bar_h_estimate - bottom_margin
         poster_w = int(self.width * 0.3)
         poster_h = int(poster_w * 1.5)
+        if poster_h > available_h:
+            poster_h = available_h
+            poster_w = int(poster_h / 1.5)
         poster_x = 60
-        poster_y = 80
+        poster_y = top_offset
 
         if poster_img:
             scaled = pygame.transform.smoothscale(poster_img, (poster_w, poster_h))
@@ -497,24 +582,33 @@ class UIRenderer:
         btn_y = min(btn_y, button_top_floor)
         btn_x = meta_x
 
-        # Visual style mirrors the selected episode row: a dark chip with a
-        # red bottom-stripe matching the active tab underline.
+        # Play button — focused when tab_focus is False (the user can hit
+        # Enter to play). When the user has DPad-focused the tab bar the
+        # button dims and the stripe greys out so it's obvious focus moved.
+        play_focused = not tab_focus
+        bg_color = (45, 45, 45) if play_focused else (28, 28, 28)
         pygame.draw.rect(
-            self.screen,
-            (30, 30, 30),
-            (btn_x, btn_y, btn_w, btn_h),
+            self.screen, bg_color, (btn_x, btn_y, btn_w, btn_h),
             border_radius=int(12 * s),
         )
         stripe_h = int(8 * s)
+        stripe_color = self.ACCENT if play_focused else (60, 60, 60)
         pygame.draw.rect(
-            self.screen,
-            self.ACCENT,
+            self.screen, stripe_color,
             (btn_x, btn_y + btn_h - stripe_h, btn_w, stripe_h),
             border_bottom_left_radius=int(12 * s),
             border_bottom_right_radius=int(12 * s),
         )
+        if play_focused:
+            ring = max(3, int(4 * s))
+            pygame.draw.rect(
+                self.screen, (210, 210, 210),
+                (btn_x - ring, btn_y - ring, btn_w + ring * 2, btn_h + ring * 2),
+                width=ring, border_radius=int(14 * s),
+            )
+        text_color = self.TEXT if play_focused else self.DIM
         play_label = f"\u25B6  {action_text}"
-        play_surf = self.font_big.render(play_label, True, self.TEXT)
+        play_surf = self.font_big.render(play_label, True, text_color)
         play_rect = play_surf.get_rect(center=(btn_x + btn_w // 2, btn_y + (btn_h - stripe_h) // 2))
         self.screen.blit(play_surf, play_rect)
 
@@ -523,24 +617,28 @@ class UIRenderer:
         pygame.display.flip()
 
     def render_episode_list(
-        self, title: str, items: list, selected: int, api: MediaServerAPI
+        self, title: str, items: list, selected: int, api: MediaServerAPI,
+        tabs: Optional[list] = None, selected_tab: int = 0,
+        tab_focus: bool = False, breadcrumb: Optional[list] = None,
     ):
         """Vertical scrolling list for season/episode browsing.
 
         Each row: 16:9 thumbnail (left), label (top-right), plot (below).
-        The selected row gets a chip background and a brighter label.
+        Persistent tab bar + breadcrumb header at the top.
         """
         self.screen.fill(self.BG)
 
         s = max(1, self.height / 1080)
-        title_h = int(90 * s)
+        tab_h = int(90 * s)
+        crumb_h = int(50 * s)
         margin = int(60 * s)
 
-        title_surf = self.font_title.render(title, True, self.TEXT)
-        self.screen.blit(title_surf, (margin, (title_h - title_surf.get_height()) // 2))
+        header_h = self._render_header(title, tabs, selected_tab, tab_focus,
+                                       breadcrumb, tab_h, crumb_h)
 
         hint_bar_h = int(70 * s)
-        list_y = title_h + int(20 * s)
+        list_y = header_h + int(20 * s)
+        title_h = header_h  # keep variable for downstream X/Y label placement
         list_h = self.height - list_y - hint_bar_h
 
         thumb_h = int(280 * s)
@@ -548,9 +646,18 @@ class UIRenderer:
         row_pad = int(20 * s)
         row_h = thumb_h + row_pad
 
-        visible = max(1, list_h // row_h)
-        start = max(0, selected - visible // 2)
-        start = min(start, max(0, len(items) - visible))
+        # Centered scrolling: selected row sits at the viewport's vertical
+        # midpoint. Adjacent rows render with partial visibility (clipped to
+        # the list area) so navigation feels continuous instead of jumping
+        # between three fully-aligned rows.
+        total_h = row_h * len(items)
+        if total_h <= list_h:
+            scroll_offset = 0
+            visible = len(items)
+        else:
+            scroll_offset = (selected + 0.5) * row_h - list_h / 2
+            scroll_offset = max(0, min(scroll_offset, total_h - list_h))
+            visible = max(1, list_h // row_h)
 
         text_x = margin + thumb_w + int(28 * s)
         text_w = self.width - text_x - margin
@@ -558,9 +665,14 @@ class UIRenderer:
         import textwrap
         plot_chars = max(40, int(text_w / (self.font_small.get_height() * 0.55)))
 
-        for i in range(start, min(start + visible, len(items))):
-            item = items[i]
-            y = list_y + (i - start) * row_h
+        prev_clip = self.screen.get_clip()
+        self.screen.set_clip((0, list_y, self.width, list_h))
+
+        for i, item in enumerate(items):
+            y = list_y + int(i * row_h - scroll_offset)
+            if y + row_h < list_y or y > list_y + list_h:
+                continue
+
             row_rect = (
                 margin - row_pad // 2,
                 y,
@@ -596,9 +708,51 @@ class UIRenderer:
                     self.screen.blit(line_surf, (text_x, line_y))
                     line_y += line_surf.get_height() + 4
 
-        if len(items) > visible:
+        self.screen.set_clip(prev_clip)
+
+        if total_h > list_h:
+            sb_w = max(8, int(12 * s))
+            chev_size = int(22 * s)
+            chev_pad = int(14 * s)
+            sb_x = self.width - margin // 2 - sb_w
+            sb_top = list_y + chev_size + chev_pad
+            sb_bottom = list_y + list_h - chev_size - chev_pad
+            sb_h = sb_bottom - sb_top
+            pygame.draw.rect(
+                self.screen, (40, 40, 40), (sb_x, sb_top, sb_w, sb_h),
+                border_radius=sb_w // 2,
+            )
+            thumb_height = max(int(40 * s), int(sb_h * list_h / total_h))
+            scroll_range = sb_h - thumb_height
+            max_offset = total_h - list_h
+            thumb_y = sb_top + int(scroll_range * scroll_offset / max(1, max_offset))
+            pygame.draw.rect(
+                self.screen,
+                self.ACCENT,
+                (sb_x, thumb_y, sb_w, thumb_height),
+                border_radius=sb_w // 2,
+            )
+
+            chev_cx = sb_x + sb_w // 2
+            up_color = self.TEXT if scroll_offset > 0 else (60, 60, 60)
+            up_y = sb_top - chev_pad - chev_size
+            pygame.draw.polygon(
+                self.screen, up_color,
+                [(chev_cx, up_y),
+                 (chev_cx - chev_size // 2, up_y + chev_size),
+                 (chev_cx + chev_size // 2, up_y + chev_size)],
+            )
+            down_color = self.TEXT if scroll_offset < max_offset else (60, 60, 60)
+            down_y = sb_bottom + chev_pad
+            pygame.draw.polygon(
+                self.screen, down_color,
+                [(chev_cx, down_y + chev_size),
+                 (chev_cx - chev_size // 2, down_y),
+                 (chev_cx + chev_size // 2, down_y)],
+            )
+
             scroll_text = f"{selected + 1} / {len(items)}"
-            scroll_surf = self.font_big.render(scroll_text, True, self.TEXT)
+            scroll_surf = self.font.render(scroll_text, True, self.DIM)
             self.screen.blit(
                 scroll_surf,
                 (self.width - scroll_surf.get_width() - margin,
@@ -645,6 +799,41 @@ class UIRenderer:
 # --- Main Player ---
 
 
+def view_details(
+    ui: UIRenderer, api: MediaServerAPI, item: dict,
+    tabs: Optional[list], selected_tab: int,
+):
+    """Show movie details and handle DPad nav between Play and the tab bar.
+
+    Returns:
+      - None on Esc/back
+      - int (new selected_tab) when the user switches Collection from the bar
+    """
+    crumbs = breadcrumb_for_item(item)
+    tab_focus = False
+    while True:
+        ui.render_details(item, api, "Play",
+                          tabs=tabs, selected_tab=selected_tab,
+                          breadcrumb=crumbs, tab_focus=tab_focus)
+        key = ui.wait_key()
+        if tab_focus:
+            if key == "left" and tabs and len(tabs) > 1:
+                return (selected_tab - 1) % len(tabs)
+            if key == "right" and tabs and len(tabs) > 1:
+                return (selected_tab + 1) % len(tabs)
+            if key in ("down", "select", "back"):
+                tab_focus = False
+            elif key == "quit":
+                return None
+            continue
+        if key == "up" and tabs and len(tabs) > 1:
+            tab_focus = True
+        elif key == "select":
+            play_video(ui, api, item["path"], item.get("name", "?"))
+        elif key in ("back", "quit"):
+            return None
+
+
 def play_video(ui: UIRenderer, api: MediaServerAPI, media_path: str, title: str):
     """Play video with mpv."""
     ui.show_message(f"Playing {title}...")
@@ -679,44 +868,76 @@ def _is_episode_listing(items: list) -> bool:
     return with_episode >= max(1, len(videos) // 2 + 1)
 
 
-def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
+def browse_grid(
+    ui: UIRenderer, api: MediaServerAPI, path: str = "",
+    tabs: Optional[list] = None, selected_tab: int = 0,
+):
     """Browse media. Renders as a poster grid by default, or as a vertical
-    episode list when the listing is dominated by TV episodes.
+    episode list when the listing is dominated by TV episodes. Tab bar +
+    breadcrumb stay pinned at the top across nested folders.
 
-    Returns True if user navigated deeper."""
+    Returns:
+      - None for normal back / pop-out
+      - int for a requested tab switch (new selected_tab index); propagates
+        all the way back to main_menu so deep browsing can jump to another
+        Collection without backing out manually.
+    """
     api.cache.pop(path, None)
     data = api.get_media(path)
     if not data:
         ui.show_message("No media found")
         time.sleep(2)
-        return False
+        return None
 
     items = data.get("items", [])
     if not items:
         ui.show_message("No items in this folder")
         time.sleep(2)
-        return False
+        return None
 
     selected = 0
     title = path.split("/")[-1] if path else "Media"
+    crumbs = breadcrumb_segments(path)
     list_mode = data.get("view_hint") == "list" or _is_episode_listing(items)
+    tab_focus = False
 
     while True:
         if list_mode:
-            ui.render_episode_list(title, items, selected, api)
+            ui.render_episode_list(title, items, selected, api,
+                                   tabs=tabs, selected_tab=selected_tab,
+                                   tab_focus=tab_focus, breadcrumb=crumbs)
         else:
-            ui.render_grid(title, items, selected, api)
+            ui.render_grid(title, items, selected, api,
+                           tabs=tabs, selected_tab=selected_tab,
+                           tab_focus=tab_focus, breadcrumb=crumbs)
         key = ui.wait_key()
+
+        if tab_focus:
+            if key == "left" and tabs and len(tabs) > 1:
+                return (selected_tab - 1) % len(tabs)
+            elif key == "right" and tabs and len(tabs) > 1:
+                return (selected_tab + 1) % len(tabs)
+            elif key in ("down", "select", "back"):
+                tab_focus = False
+            elif key == "quit":
+                return None
+            continue
 
         if list_mode:
             if key == "up":
-                selected = max(0, selected - 1)
+                if selected == 0 and tabs and len(tabs) > 1:
+                    tab_focus = True
+                else:
+                    selected = max(0, selected - 1)
             elif key == "down":
                 selected = min(len(items) - 1, selected + 1)
             elif key == "select":
                 item = items[selected]
                 if item["type"] == "folder":
-                    browse_grid(ui, api, item["path"])
+                    result = browse_grid(ui, api, item["path"],
+                                         tabs=tabs, selected_tab=selected_tab)
+                    if isinstance(result, int):
+                        return result
                 else:
                     play_video(ui, api, item["path"], item.get("name", "?"))
             elif key == "reload":
@@ -727,14 +948,19 @@ def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
                 selected = min(selected, max(0, len(items) - 1))
                 list_mode = data.get("view_hint") == "list" or _is_episode_listing(items)
             elif key in ("back", "quit"):
-                return False if key == "quit" else True
+                return None
             continue
 
+        cols = ui.grid_cols
+        row = selected // cols
+        col = selected % cols
+
         if key == "up":
-            cols = ui.grid_cols
-            selected = max(0, selected - cols)
+            if row == 0 and tabs and len(tabs) > 1:
+                tab_focus = True
+            else:
+                selected = max(0, selected - cols)
         elif key == "down":
-            cols = ui.grid_cols
             selected = min(len(items) - 1, selected + cols)
         elif key == "left":
             selected = max(0, selected - 1)
@@ -743,27 +969,24 @@ def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
         elif key == "select":
             item = items[selected]
             if item["type"] == "folder":
-                browse_grid(ui, api, item["path"])
+                result = browse_grid(ui, api, item["path"],
+                                     tabs=tabs, selected_tab=selected_tab)
+                if isinstance(result, int):
+                    return result
             else:
-                ui.render_details(item, api, "Play")
-                while True:
-                    key = ui.wait_key()
-                    if key == "select":
-                        play_video(ui, api, item["path"], item.get("name", "?"))
-                        break
-                    elif key == "back":
-                        break
+                result = view_details(ui, api, item, tabs, selected_tab)
+                if isinstance(result, int):
+                    return result
         elif key == "reload":
             api.cache.clear()
             ui.image_cache.clear()
             data = api.get_media(path) or {}
             items = data.get("items", [])
             selected = min(selected, max(0, len(items) - 1))
+            crumbs = breadcrumb_segments(path)
             list_mode = data.get("view_hint") == "list" or _is_episode_listing(items)
         elif key in ("back", "quit"):
-            return False if key == "quit" else True
-
-    return True
+            return None
 
 
 def _load_tabs(api: MediaServerAPI) -> tuple:
@@ -869,16 +1092,16 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
                 elif key == "select":
                     item = items[selected]
                     if item["type"] == "folder":
-                        browse_grid(ui, api, item["path"])
+                        result = browse_grid(ui, api, item["path"],
+                                             tabs=tabs, selected_tab=selected_tab)
+                        if isinstance(result, int):
+                            selected_tab = result
+                            break
                     else:
-                        ui.render_details(item, api, "Play")
-                        while True:
-                            k = ui.wait_key()
-                            if k == "select":
-                                play_video(ui, api, item["path"], item.get("name", "?"))
-                                break
-                            elif k == "back":
-                                break
+                        result = view_details(ui, api, item, tabs, selected_tab)
+                        if isinstance(result, int):
+                            selected_tab = result
+                            break
                 elif key == "reload":
                     new_tabs, new_paths = _load_tabs(api)
                     if new_tabs:

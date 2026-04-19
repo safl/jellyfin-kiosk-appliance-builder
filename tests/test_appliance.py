@@ -41,6 +41,12 @@ def test_mpv_installed(cijoe: Cijoe):
     assert not err, state.output()
 
 
+def test_pipewire_audio_installed(cijoe: Cijoe):
+    """PipeWire + WirePlumber are required so mpv routes to HDMI by default."""
+    err, state = cijoe.run("dpkg -l pipewire-audio wireplumber pulseaudio-utils")
+    assert not err, state.output()
+
+
 def test_openbox_installed(cijoe: Cijoe):
     err, state = cijoe.run("dpkg -l openbox")
     assert not err, state.output()
