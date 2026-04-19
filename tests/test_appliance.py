@@ -30,6 +30,12 @@ def test_python3_flask_installed(cijoe: Cijoe):
     assert not err, state.output()
 
 
+def test_python3_cec_installed(cijoe: Cijoe):
+    """The libcec Python binding is required by the CEC bridge."""
+    err, state = cijoe.run("python3 -c 'import cec'")
+    assert not err, state.output()
+
+
 def test_mpv_installed(cijoe: Cijoe):
     err, state = cijoe.run("which mpv")
     assert not err, state.output()

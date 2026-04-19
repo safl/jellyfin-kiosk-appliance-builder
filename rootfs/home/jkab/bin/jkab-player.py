@@ -277,7 +277,7 @@ class UIRenderer:
         hint_bar_h = 50
         hint_bar = pygame.Rect(0, self.height - hint_bar_h, self.width, hint_bar_h)
         pygame.draw.rect(self.screen, (20, 20, 20), hint_bar)
-        hint_text = "↑↓←→ Navigate   Enter Select   Esc Back"
+        hint_text = "↑↓←→ Navigate   Enter Select   Esc Back   R Reload"
         hint_surf = self.font_small.render(hint_text, True, self.DIM)
         self.screen.blit(hint_surf, (40, self.height - hint_bar_h + 12))
 
@@ -450,6 +450,8 @@ class UIRenderer:
                         return "back"
                     elif event.key == pygame.K_q:
                         return "quit"
+                    elif event.key in (pygame.K_r, pygame.K_F5):
+                        return "reload"
             pygame.time.wait(50)
 
     def quit(self):
@@ -484,6 +486,7 @@ def play_video(ui: UIRenderer, api: MediaServerAPI, media_path: str, title: str)
 
 def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
     """Browse media grid. Returns True if user navigated deeper."""
+    api.cache.pop(path, None)
     data = api.get_media(path)
     if not data:
         ui.show_message("No media found")
@@ -497,7 +500,6 @@ def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
         return False
 
     selected = 0
-    parent_path = path.rsplit("/", 1)[0] if "/" in path else ""
     title = path.split("/")[-1] if path else "Media"
 
     while True:
@@ -529,37 +531,51 @@ def browse_grid(ui: UIRenderer, api: MediaServerAPI, path: str = "") -> bool:
                         break
                     elif key == "back":
                         break
+        elif key == "reload":
+            api.cache.clear()
+            ui.image_cache.clear()
+            data = api.get_media(path)
+            items = (data or {}).get("items", [])
+            selected = min(selected, max(0, len(items) - 1))
         elif key in ("back", "quit"):
             return False if key == "quit" else True
 
     return True
 
 
-def main_menu(ui: UIRenderer, api: MediaServerAPI):
-    """Main menu with dynamic tabs for all folders in /media."""
-    # Get all top-level folders in /media
+def _load_tabs(api: MediaServerAPI) -> tuple:
+    """Re-query the indexer root and return (tabs, paths) for the menu."""
     root_data = api.get_media()
     if not root_data or not root_data.get("items"):
-        ui.show_message("No media found in /media")
-        time.sleep(3)
-        return
-
-    # Extract folder names (only folders, not videos)
+        return [], []
     folders = [item for item in root_data["items"] if item["type"] == "folder"]
-    if not folders:
+    return (
+        [folder["name"] for folder in folders],
+        [folder["path"] for folder in folders],
+    )
+
+
+def main_menu(ui: UIRenderer, api: MediaServerAPI):
+    """Main menu with dynamic tabs for all folders in /media.
+
+    Press R or F5 anywhere in the grid to re-query the indexer (catches
+    USB drives plugged in after launch).
+    """
+    tabs, tab_paths = _load_tabs(api)
+    if not tabs:
         ui.show_message("No media folders found in /media")
         time.sleep(3)
         return
 
-    tabs = [folder["name"] for folder in folders]
-    tab_paths = [folder["path"] for folder in folders]
     selected_tab = 0
 
     while True:
         ui.show_message(f"Loading {tabs[selected_tab]}...")
 
-        # Get items for current tab
+        # Get items for current tab. Bypass the per-path cache so reloads
+        # always reflect drives mounted after the player started.
         path = tab_paths[selected_tab]
+        api.cache.pop(path, None)
         data = api.get_media(path)
 
         if data and data.get("items"):
@@ -605,6 +621,14 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
                                 break
                             elif k == "back":
                                 break
+                elif key == "reload":
+                    new_tabs, new_paths = _load_tabs(api)
+                    if new_tabs:
+                        tabs, tab_paths = new_tabs, new_paths
+                        selected_tab = min(selected_tab, len(tabs) - 1)
+                    api.cache.clear()
+                    ui.image_cache.clear()
+                    break
                 elif key == "quit":
                     return
 
