@@ -2,10 +2,10 @@
 
 *JKAB, pronounced "Jakob" in Australian*
 
-Zero-config distro image for a Jellyfin kiosk appliance. Boots straight into
-Jellyfin Media Player in fullscreen with a local Jellyfin server running.
-Plug in a USB drive or SD card with media files and they appear in the library
-automatically.
+Zero-config distro image for a Netflix-style media kiosk. Boots straight into a
+custom grid-based UI for browsing and playing video from `/media/` drives.
+Metadata is provided offline via `.nfo` files (created by MediaElch on a separate machine).
+Plug in a USB drive or SD card with pre-indexed media and it plays immediately.
 
 Based on Debian 13 (trixie) cloud image, provisioned with cloud-init and built
 using [cijoe](https://github.com/refenv/cijoe). Currently targets x86_64
@@ -14,13 +14,13 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ## What's in the image
 
-### Jellyfin
+### Media Player
 
-- **Server**: Jellyfin media server with optimized ffmpeg (auto-starts, auto-configured)
-- **Client**: Jellyfin Media Player in fullscreen (native deb)
-- **Jellyfin user**: `jellyfin` / `jellyfin` (created automatically on first boot)
-- **Metadata**: saved alongside media files (survives image reflash)
-- **Sample**: Sintel and Big Buck Bunny included for playback testing
+- **Server**: Lightweight jkab-server (Python Flask) indexing `.nfo` metadata files
+- **Client**: Custom Netflix-style grid UI (pygame) with DPad navigation
+- **System user**: `jellyfin` / `jellyfin` (created automatically)
+- **Metadata**: Provided offline via `.nfo` files alongside video (created by MediaElch)
+- **Playback**: mpv with hardware video decoding
 
 ### Display
 
@@ -31,10 +31,10 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ### Library & Media
 
-- **Libraries**: Movies and Shows libraries created on first boot, both pointing to `/media/`
-- **Metadata**: fetched in the configured locale and saved alongside media files (survives reflash)
+- **Structure**: Movies, Shows, Videos folders in `/media/` (created automatically)
+- **Metadata**: `.nfo` files + poster art (created by MediaElch on separate machine)
 - **Auto-mount**: USB/SD drives auto-mount to `/media/<label>` via udev rules
-- **Library scan**: Jellyfin server detects new mounts and rescans automatically
+- **Offline**: All metadata cached locally; no internet required after setup
 - **Filesystem**: NTFS and exFAT support for external media
 
 ### System
@@ -48,6 +48,21 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 - **Debug**: SSH enabled (root/root)
 
 ## Install
+
+### Prerequisites
+
+- External media drive (USB or SD card) with video files organized as:
+  - `Movies/<title>/<video.mp4>`
+  - `Shows/<show>/<season>/<episode.mp4>`
+  - `Videos/<collection>/<video.mp4>`
+
+### Setup (one-time, on separate machine)
+
+1. Install [MediaElch](https://github.com/Komet/MediaElch) (free, open-source)
+2. Point it at your media drive and fetch metadata from themoviedb.org / thetvdb.com
+3. Result: `.nfo` files + poster art alongside each video file
+
+### Deploy to kiosk
 
 1. Download a live USB image (e.g. [Ubuntu Desktop](https://ubuntu.com/download/desktop))
    and boot the target machine from it
@@ -71,13 +86,11 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
    reboot
    ```
 
-5. On first boot, the appliance auto-logs in, sets up the Jellyfin server,
-   and launches the media player. On the first launch, connect to
-   `localhost:8096` and log in with **jellyfin** / **jellyfin**. The client
-   remembers the server on subsequent boots.
-
-   Plug in a USB drive or SD card with media files — they auto-mount and
-   appear in the library.
+5. On first boot, the appliance auto-logs in and launches the media player.
+   Plug in your media drive (with `.nfo` metadata from MediaElch) — it auto-mounts
+   and appears in the grid UI immediately.
+   
+   Navigate with dpad/remote, select with enter, play with mpv.
 
 ## Install extras
 
