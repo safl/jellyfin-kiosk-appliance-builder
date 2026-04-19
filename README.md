@@ -1,4 +1,4 @@
-# Jellyfin Kiosk Appliance Builder (JKAB)
+# Janky Kiosk Appliance Builder (JKAB)
 
 *JKAB, pronounced "Jakob" in Australian*
 
@@ -18,7 +18,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 - **Server**: Lightweight jkab-server (Python Flask) indexing `.nfo` metadata files
 - **Client**: Custom Netflix-style grid UI (pygame) with DPad navigation
-- **System user**: `jellyfin` / `jellyfin` (created automatically)
+- **System user**: `jkab` / `jkab` (created automatically)
 - **Metadata**: Provided offline via `.nfo` files alongside video (created by MediaElch)
 - **Playback**: mpv with hardware video decoding
 
@@ -39,7 +39,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ### System
 
-- **System user**: `jellyfin` / `jellyfin` (auto-login, passwordless sudo)
+- **System user**: `jkab` / `jkab` (auto-login, passwordless sudo)
 - **Network**: NetworkManager (configure via `nmtui` over SSH)
 - **Audio**: PulseAudio
 - **GPU**: Intel VA-API hardware video decoding

@@ -1,14 +1,14 @@
 ---
 doc: |
-  Jellyfin Kiosk Appliance
-  ========================
+  Janky Kiosk Appliance
+  =====================
 
-  Build a Jellyfin client kiosk appliance disk image from a Debian cloud image.
+  Build a JKAB media kiosk appliance disk image from a Debian cloud image.
 
   The workflow:
 
   1. Downloads the Debian 13 cloud image
-  2. Injects cloud-init config (openbox, Jellyfin Media Player, HDMI CEC)
+  2. Injects cloud-init config (openbox, jkab-server, jkab-player, HDMI CEC)
   3. Boots QEMU, cloud-init provisions everything, VM shuts down
   4. Produces a baked qcow2 disk image ready to deploy
 

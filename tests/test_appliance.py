@@ -95,23 +95,23 @@ def test_getty_autologin(cijoe: Cijoe):
         "cat /etc/systemd/system/getty@tty1.service.d/autologin.conf"
     )
     assert not err
-    assert "--autologin jellyfin" in state.output()
+    assert "--autologin jkab" in state.output()
 
 
 def test_bash_profile(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jellyfin/.bash_profile")
+    err, state = cijoe.run("cat /home/jkab/.bash_profile")
     assert not err
     assert "startx" in state.output()
 
 
 def test_xinitrc(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jellyfin/.xinitrc")
+    err, state = cijoe.run("cat /home/jkab/.xinitrc")
     assert not err
     assert "openbox-session" in state.output()
 
 
 def test_openbox_autostart(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jellyfin/.config/openbox/autostart")
+    err, state = cijoe.run("cat /home/jkab/.config/openbox/autostart")
     assert not err
     output = state.output()
     assert "jkab-player.py" in output
@@ -170,9 +170,8 @@ def test_logind_power_button(cijoe: Cijoe):
 
 def test_scripts_executable(cijoe: Cijoe):
     scripts = [
-        "/home/jellyfin/bin/jellyfin-start.sh",
-        "/home/jellyfin/bin/jkab-player.py",
-        "/home/jellyfin/bin/jkab-cec-bridge.py",
+        "/home/jkab/bin/jkab-player.py",
+        "/home/jkab/bin/jkab-cec-bridge.py",
         "/usr/local/bin/jkab-server.py",
         "/usr/local/bin/jkab-automount.sh",
         "/usr/local/bin/jkab-umount.sh",
@@ -195,8 +194,8 @@ def test_media_directories_exist(cijoe: Cijoe):
 
 def test_jkab_cache_directory(cijoe: Cijoe):
     """Verify cache directory for jkab-server progress tracking."""
-    err, state = cijoe.run("test -d /home/jellyfin/.cache/jkab")
-    assert not err, "/home/jellyfin/.cache/jkab does not exist"
+    err, state = cijoe.run("test -d /home/jkab/.cache/jkab")
+    assert not err, "/home/jkab/.cache/jkab does not exist"
 
 
 # --- Plymouth ---

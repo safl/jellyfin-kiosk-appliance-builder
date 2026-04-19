@@ -1,7 +1,7 @@
 ---
 doc: |
-  Run the Jellyfin Kiosk Appliance
-  ================================
+  Run the Janky Kiosk Appliance
+  =============================
 
   Boot the baked appliance image in QEMU with a graphical display.
   Blocks until the guest is shut down or the window is closed.

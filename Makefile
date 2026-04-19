@@ -6,7 +6,7 @@ DISK_IMAGE = $(HOME)/system_imaging/disk/jkab-$(VARIANT)-x86_64.qcow2
 .PHONY: help deps build test interactive clean
 
 help:
-	@echo "JKAB - Jellyfin Kiosk Appliance Builder"
+	@echo "JKAB - Janky Kiosk Appliance Builder"
 	@echo ""
 	@echo "Targets:"
 	@echo "  deps     Install build dependencies (cijoe via pipx)"

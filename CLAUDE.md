@@ -4,17 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**JKAB** (Jellyfin Kiosk Appliance Builder) is an automated build system that creates a zero-config Debian-based disk image for running a Jellyfin media server + client kiosk on x86_64 NUC-style hardware.
+**JKAB** (Janky Kiosk Appliance Builder) is an automated build system that creates a zero-config Debian-based disk image for a Netflix-style media kiosk on x86_64 NUC-style hardware.
 
-The image is built on Debian 13 cloud image and provisioned via cloud-init. It boots directly to a fullscreen Jellyfin Media Player instance running in openbox (minimal X11 window manager), with a local Jellyfin server auto-starting in the background.
+The image is built on Debian 13 cloud image and provisioned via cloud-init. It boots directly into a custom fullscreen pygame UI (`jkab-player`) backed by a lightweight local Flask server (`jkab-server`) that indexes `.nfo` metadata and streams video files. Playback is handled by mpv with VA-API hardware decode.
+
+Metadata is **offline-first**: created on a separate machine using MediaElch (or any KODI-compatible scraper) which writes `.nfo` XML files and poster art alongside videos in `/media/`. The kiosk never touches the internet for metadata.
 
 **Key features:**
-- Jellyfin server + Media Player (native debs)
-- HDMI CEC support for TV remote control
-- Auto-mounting USB/SD media drives
+- Custom jkab-server (Flask, indexes `.nfo` files, streams video with HTTP range)
+- Custom jkab-player (pygame Netflix-grid UI with DPad navigation)
+- Dynamic tabs for all top-level folders in `/media/` (auto-shows USB mounts)
+- HDMI CEC support for TV remote control (cec-utils → xdotool)
+- Auto-mounting USB/SD media drives via udev
 - HiDPI auto-detection (4K displays)
-- Minimal footprint (no desktop environment)
-- SSH access for debugging
+- mpv with hardware video decoding (Intel VA-API)
+- Minimal footprint (no desktop environment, openbox only)
+- SSH access for debugging (root/root)
 
 ## Build System
 
@@ -51,15 +56,20 @@ Debian 13 cloud image
    Baked disk image (qcow2)
         ↓
    Deploy to hardware
+        ↓
+   Plug in /media/ drive (with .nfo from MediaElch)
+        ↓
+   jkab-server indexes filesystem, jkab-player shows grid
 ```
 
 ### Key Build Stages
 
 1. **gen_userdata** (scripts/gen_userdata.py)
    - Combines `auxiliary/cloudinit-base.user` with files from `rootfs/`
+   - Files under `/home/jkab/` get `owner: jkab:jkab` and `defer: true` (created after user exists)
    - Templates timezone variable
    - Generates `/etc/jkab.conf` with locale settings
-   - Output: `auxiliary/cloudinit-userdata.user`
+   - Output: `auxiliary/cloudinit-userdata.user` (DO NOT EDIT manually)
 
 2. **diskimage_build** (scripts/diskimage_build.py)
    - Downloads Debian 13 cloud image (if needed)
@@ -72,7 +82,7 @@ Debian 13 cloud image
 3. **Test Suite** (tests/test_appliance.py via cijoe testrunner)
    - Runs on booted QEMU guest (SSH access)
    - Verifies packages, systemd services, config files
-   - Tests Jellyfin server/client setup and first-boot wizard
+   - Tests jkab-server health endpoint
    - Tests CEC udev rules, automount rules, scripts executable
 
 ## File Structure
@@ -88,21 +98,19 @@ JKAB/
 │   ├── test.yaml              # Test workflow (run suite on guest)
 │   └── run.yaml               # Interactive QEMU (SPICE display)
 ├── scripts/
-│   ├── gen_userdata.py        # Generate cloud-init userdata
+│   ├── gen_userdata.py        # Generate cloud-init userdata from rootfs/
 │   ├── diskimage_build.py     # Build disk image (download, provision, compact)
 │   └── guest_run.py           # Start QEMU with SPICE display
 ├── rootfs/                    # Files baked into image via cloud-init write_files
-│   ├── etc/                   # System config (SSH, systemd, udev rules)
-│   ├── usr/local/bin/         # System scripts (automount, install-extras)
-│   └── home/jellyfin/         # User scripts & config (Jellyfin launch, openbox)
+│   ├── etc/                   # System config (systemd units, udev rules, autologin)
+│   ├── usr/local/bin/         # System scripts (jkab-server, automount, install-extras)
+│   └── home/jkab/             # User scripts & config (jkab-player, openbox)
 ├── auxiliary/
-│   ├── cloudinit-base.user    # Base cloud-init config
+│   ├── cloudinit-base.user    # Base cloud-init config (edit this)
 │   ├── cloudinit-userdata.user # Generated userdata (DO NOT EDIT manually)
 │   └── cloudinit-metadata.meta # Cloud-init metadata
-├── tests/
-│   └── test_appliance.py      # pytest tests (run on guest)
-└── .claude/
-    └── settings.local.json    # Claude Code project settings
+└── tests/
+    └── test_appliance.py      # pytest tests (run on guest via cijoe)
 ```
 
 ## Configuration System
@@ -111,114 +119,103 @@ Configuration is **TOML-based** in `configs/*.toml`. Each variant (dk, us, etc.)
 
 ### Key Config Sections
 
-**[jkab]** — Locale & internationalization
+**[jkab]** — Locale & internationalization (written to `/etc/jkab.conf` on guest)
 ```toml
 [jkab]
 variant = "dk"
-ui_culture = "da"              # Jellyfin UI language
+ui_culture = "da"              # UI language hint
 metadata_country = "DK"        # Metadata region
-metadata_language = "da"       # Metadata language
+metadata_language = "da"
 subtitle_language = "da"
 audio_language = "da"
 subtitle_mode = "Smart"
 timezone = "Europe/Copenhagen" # Templated into cloud-init
 ```
 
-**[cijoe.transport.qemu_guest]** — SSH access to guest
-```toml
-[cijoe.transport.qemu_guest]
-username = "root"
-password = "root"
-hostname = "localhost"
-port = 4200                    # SSH forwarded to 4200
-```
+**[cijoe.transport.qemu_guest]** — SSH access to guest (port 4200 forwarded to 22)
 
-**[qemu.guests.jkab-*]** — QEMU VM configuration
-```toml
-system_args.kwa = {cpu = "host", smp = 4, m = "4G", accel = "kvm"}
-```
+**[qemu.guests.jkab-*]** — QEMU VM configuration (CPU, RAM, accel)
 
-**[system-imaging.images.jkab-*]** — Cloud image + disk output paths
-```toml
-cloud.url = "https://cloud.debian.org/images/cloud/trixie/daily/latest/debian-13-generic-amd64-daily.qcow2"
-disk.path = "~/system_imaging/disk/jkab-dk-x86_64.qcow2"
-```
+**[system-imaging.images.jkab-*]** — Cloud image URL + disk output path
 
 ## Cloud-Init Provisioning
 
 The appliance is provisioned by cloud-init via `auxiliary/cloudinit-userdata.user`.
 
 ### Main Provisions:
-- **System**: openbox, X11, dbus, NetworkManager, hardware codecs
-- **Jellyfin**: Server (with systemd service), Media Player client, ffmpeg7
-- **CEC**: cec-utils, udev rules for Pulse-Eight CEC adapter
-- **Media**: udisks2, NTFS/exFAT support, udev automount rules
-- **Scripts**: jellyfin-start.sh, cec-jellyfin.sh, jkab-automount.sh
-- **Boot**: Plymouth splash, quiet kernel, power button handling
-- **Sample Media**: Sintel, Big Buck Bunny (Creative Commons test videos)
+- **System user**: `jkab` / `jkab` (passwordless sudo, auto-login on tty1)
+- **Hostname**: `jkab-tv`
+- **Packages**: openbox, xinit, dbus, NetworkManager, intel-media-va-driver, mpv, python3-pygame, libcec-dev, plymouth, openssh-server
+- **Pip**: Flask, tomli, tomli-w (for jkab-server)
+- **Media dirs**: `/media/Movies`, `/media/Shows`, `/media/Videos`
+- **Cache**: `/home/jkab/.cache/jkab` (for jkab-server progress TOML)
+- **CEC**: cec-utils + udev rules for Pulse-Eight CEC adapter
+- **Automount**: udisks2 + udev rules for `/media/<label>` USB/SD mounting
+- **Boot**: Plymouth splash, quiet kernel, BIOS-safe fstab fixup
+- **Systemd**: `jkab-server.service` enabled (runs as user `jkab`)
+- **Sample Media**: Sintel, Big Buck Bunny → `/media/Misc/` (CC test videos)
 
-### First-Boot Setup:
-1. Cloud-init runs provisioning (packages, scripts, config)
-2. User logs in as `jellyfin` (auto-login on tty1)
-3. startx launches openbox
-4. openbox/autostart runs jellyfin-start.sh
-5. jellyfin-start.sh launches Jellyfin Media Player
-6. Server runs first-boot wizard (auto-configures user/libraries)
+### First-Boot Sequence:
+1. Cloud-init runs provisioning (packages, scripts, systemd units)
+2. User auto-logs in as `jkab` on tty1
+3. `.bash_profile` runs `startx` on tty1
+4. `.xinitrc` execs `dbus-run-session openbox-session`
+5. openbox `autostart` waits for jkab-server health check then loops `jkab-player.py`
+6. jkab-cec-bridge.py runs in background mapping CEC keys to xdotool
 
 ## Testing
 
-Tests verify the provisioned image is correct **before deployment**.
-
-### Run Tests
 ```bash
 make test VARIANT=dk           # Runs on built image in QEMU guest
 ```
 
-### Test Coverage (tests/test_appliance.py)
-- **Packages**: jellyfin-media-player, jellyfin-server, openbox, cec-utils, etc.
-- **Services**: jellyfin enabled/active, responds to HTTP API
-- **Kiosk**: tty1 autologin, openbox setup, scripts executable
-- **Locale**: /etc/jkab.conf generated with correct values
-- **Config**: udev rules, logind power button, SSH config
-- **First-Boot**: Wizard completion, user auth via API
+Test coverage in `tests/test_appliance.py`:
+- **Packages**: python3, python3-pygame, flask, mpv, openbox, cec-utils, etc.
+- **Services**: jkab-server enabled/active, responds on `localhost:8080/api/health`
+- **Kiosk**: tty1 autologin (jkab), openbox setup, scripts executable
+- **Locale**: `/etc/jkab.conf` generated with correct values
+- **Config**: udev CEC + automount rules, logind power button
+- **Media**: `/media/{Movies,Shows,Videos}` directories exist, `/home/jkab/.cache/jkab` exists
 
-Tests run via **cijoe testrunner** (pytest framework) with SSH access to guest.
+Tests run via **cijoe testrunner** (pytest) over SSH to the QEMU guest.
 
 ## Key Scripts & Tools
 
-### rootfs/home/jellyfin/bin/
-
-**jellyfin-start.sh** — Launches Jellyfin Media Player
-- Sets display, audio, GPU env vars
-- Runs jkab-player.py (wraps jellyfin-media-player binary)
-
-**cec-jellyfin.sh** — Translates CEC (TV remote) to keyboard events
-- Uses cec-client to monitor remote commands
-- Maps buttons to keys Jellyfin understands
-
-**jkab-cec-bridge.py** — Legacy CEC bridge (disabled in favor of shell script)
-
-**jkab-player.py** — Media player wrapper (custom launcher)
-
 ### rootfs/usr/local/bin/
 
-**jkab-automount.sh** — udev hook for auto-mounting USB/SD media
-- Triggered by udev event on device insertion
-- Mounts to `/media/<label>`, triggers Jellyfin scan
+**jkab-server.py** — Flask media server (runs as user `jkab` via systemd)
+- Walks `/media/`, parses `.nfo` XML for metadata, serves filesystem-based API
+- Endpoints: `/api/health`, `/api/media[/{path}]`, `/stream/{path}`, `/image/{path}`, `/api/progress`
+- Streams video with HTTP range support (mpv seeking)
+- Listens on `127.0.0.1:8080`
+
+**jkab-automount.sh** — udev hook for USB/SD media auto-mount to `/media/<label>`
 
 **jkab-umount.sh** — udev hook for safe unmount
 
 **jkab-install-extras.sh** — Optional: install diagnostic tools (intel-gpu-tools, vainfo, etc.)
 
+### rootfs/home/jkab/bin/
+
+**jkab-player.py** — pygame Netflix-grid UI client
+- Queries jkab-server for media + metadata
+- Dynamic tabs for top-level `/media/` folders (so USB mounts auto-appear)
+- Grid view → details view → mpv playback (subprocess)
+- Reclaims pygame display after mpv exits
+- DPad navigation; left/right at grid edges switches tabs
+
+**jkab-cec-bridge.py** — Maps HDMI CEC remote keys to keyboard via xdotool
+
 ## Development Workflow
 
 ### Adding a New File to Image
-1. Place file in `rootfs/` with correct path/ownership/permissions
-2. gen_userdata.py will pick it up as cloud-init write_files entry
-3. Run `make build` (rebuilds userdata, provisions image)
+1. Place file in `rootfs/` with correct path/permissions (chmod +x for scripts)
+2. `gen_userdata.py` automatically picks it up as cloud-init `write_files` entry
+3. Files under `/home/jkab/` get `owner: jkab:jkab` and `defer: true`
+4. Run `make build`
 
 ### Modifying Cloud-Init Provisioning
-1. Edit `auxiliary/cloudinit-base.user` (base YAML) or files in `rootfs/`
+1. Edit `auxiliary/cloudinit-base.user` (base YAML) — never edit `cloudinit-userdata.user`
 2. Run `make build`
 
 ### Creating a New Variant
@@ -228,10 +225,10 @@ Tests run via **cijoe testrunner** (pytest framework) with SSH access to guest.
 
 ### Debugging on Booted Image
 ```bash
-ssh -p 4200 root@localhost   # SSH to QEMU guest (test/interactive mode)
+ssh -p 4200 root@localhost           # root access (test/interactive mode)
+ssh -p 4200 jkab@localhost           # user account (jkab/jkab)
+journalctl -u jkab-server -f         # follow server logs
 ```
-
-The guest runs network interface discovery via NetworkManager (SSH available).
 
 ## Build Output
 
@@ -240,6 +237,9 @@ The guest runs network interface discovery via NetworkManager (SSH available).
 - **SHA256**: `~/system_imaging/disk/jkab-dk-x86_64.qcow2.sha256`
 - **Cloud Image Cache**: `~/system_imaging/cloud/debian-13-generic-amd64-daily.qcow2` (reused between builds)
 - **Build Logs**: `cijoe-output/` (task outputs, SSH logs)
+
+### Release Pipeline
+Tags matching `v*` push trigger `.github/workflows/build.yml` which builds, tests, converts qcow2 → raw.gz, and uploads as a GitHub Release asset.
 
 ### Build Prerequisites
 - QEMU (`qemu-system-x86_64`, `qemu-img`)
@@ -253,14 +253,17 @@ The guest runs network interface discovery via NetworkManager (SSH available).
 - **cloud-init**: VM provisioning via userdata script
 - **QEMU/KVM**: Virtual machine for provisioning and testing
 - **openbox**: Minimal X11 window manager
-- **Jellyfin**: Media server + client (native Debian packages)
+- **Flask**: jkab-server HTTP framework
+- **pygame**: jkab-player UI rendering
+- **mpv**: Video playback (hardware accelerated)
 - **cec-utils**: HDMI CEC remote control bridge
-- **PulseAudio**: Audio subsystem
 - **intel-media-va-driver**: Hardware video decoding
+- **MediaElch** (external, separate machine): one-time `.nfo` metadata generation
 
 ## Related Resources
 
-- **Jellyfin**: https://jellyfin.org/
+- **MediaElch**: https://github.com/Komet/MediaElch (offline metadata scraper)
 - **cijoe**: https://github.com/refenv/cijoe
 - **Cloud-Init**: https://cloudinit.readthedocs.io/
 - **Debian Cloud Images**: https://cloud.debian.org/
+- **mpv**: https://mpv.io/

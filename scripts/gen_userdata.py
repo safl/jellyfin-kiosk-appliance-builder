@@ -64,8 +64,8 @@ def main(args, cijoe):
         mode = stat.S_IMODE(filepath.stat().st_mode)
         perms = f"0{mode:o}"
 
-        if target.startswith("/home/jellyfin/"):
-            owner = "jellyfin:jellyfin"
+        if target.startswith("/home/jkab/"):
+            owner = "jkab:jkab"
             defer = True
         else:
             owner = "root:root"

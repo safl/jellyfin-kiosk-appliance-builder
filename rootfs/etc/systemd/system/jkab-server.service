@@ -6,8 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=jellyfin
-Group=jellyfin
+User=jkab
+Group=jkab
 ExecStart=/usr/bin/python3 /usr/local/bin/jkab-server.py
 Restart=on-failure
 RestartSec=10

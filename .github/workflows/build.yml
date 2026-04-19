@@ -1,4 +1,4 @@
-name: Build Jellyfin Kiosk Appliance Image
+name: Build JKAB Image
 
 on:
   push:

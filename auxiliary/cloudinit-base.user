@@ -1,6 +1,6 @@
 #cloud-config
 
-hostname: jellyfin-tv
+hostname: jkab-tv
 timezone: __JKAB_TIMEZONE__
 
 growpart:
@@ -20,18 +20,18 @@ chpasswd:
 ssh_pwauth: true
 
 users:
-  - name: jellyfin
+  - name: jkab
     gecos: JKAB
     groups: [sudo, audio, video, input, plugdev, render]
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
-    plain_text_passwd: jellyfin
+    plain_text_passwd: jkab
 
 runcmd:
-  - mkdir -p /home/jellyfin/.config/openbox
-  - mkdir -p /home/jellyfin/bin
-  - chown -R jellyfin:jellyfin /home/jellyfin
+  - mkdir -p /home/jkab/.config/openbox
+  - mkdir -p /home/jkab/bin
+  - chown -R jkab:jkab /home/jkab
 
   # System packages
   - apt-get update -q
@@ -41,7 +41,7 @@ runcmd:
 
   # Create /media directory structure
   - mkdir -p /media/Movies /media/Shows /media/Videos
-  - mkdir -p /home/jellyfin/.cache/jkab
+  - mkdir -p /home/jkab/.cache/jkab
 
   # Enable jkab-server systemd service
   - systemctl enable jkab-server
@@ -85,7 +85,7 @@ runcmd:
 
   - touch /etc/cloud/cloud-init.disabled
 
-final_message: "Jellyfin kiosk appliance provisioned after $UPTIME seconds"
+final_message: "JKAB appliance provisioned after $UPTIME seconds"
 power_state:
   mode: poweroff
   message: "Provisioning complete, shutting down"
