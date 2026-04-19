@@ -24,6 +24,24 @@ HOST = "127.0.0.1"
 VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v"}
 POSTER_NAMES = {"poster.jpg", "cover.jpg", "fanart.jpg", "thumb.jpg"}
 
+# Filesystem entries to skip (Windows/macOS metadata, FS metadata, etc.)
+IGNORE_NAMES = {
+    "System Volume Information",
+    "$RECYCLE.BIN",
+    "RECYCLER",
+    "FOUND.000",
+    "lost+found",
+    ".Trashes",
+    ".Spotlight-V100",
+    ".fseventsd",
+    "@eaDir",
+}
+
+# Virtual top-level categories (not real directories under /media/)
+CATEGORY_MOVIES = "Movies"
+CATEGORY_SHOWS = "Shows"
+CATEGORIES = (CATEGORY_MOVIES, CATEGORY_SHOWS)
+
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -129,40 +147,153 @@ def get_media_item(file_path: Path, rel_path: str) -> dict:
     return item
 
 
-def index_media(base_path: Path, rel_path: str = "") -> Optional[dict]:
-    """Recursively index media directory."""
-    current_path = base_path / rel_path if rel_path else base_path
+def _is_ignored(name: str) -> bool:
+    """Skip dotfiles and Windows/macOS/FS metadata."""
+    return name.startswith(".") or name in IGNORE_NAMES
 
-    if not current_path.exists() or not current_path.is_dir():
-        return None
 
+def _folder_entry(directory: Path, rel_path: str) -> dict:
+    """Build a folder item dict."""
+    item = {
+        "type": "folder",
+        "name": directory.name,
+        "path": rel_path,
+    }
+    poster = find_poster(directory)
+    if poster:
+        item["poster"] = poster
+    return item
+
+
+def _list_dir_items(directory: Path, rel_prefix: str) -> list:
+    """List immediate folder/video children of a directory."""
     items = []
-
     try:
-        for entry in sorted(current_path.iterdir()):
-            # Skip hidden files
-            if entry.name.startswith("."):
+        for child in sorted(directory.iterdir()):
+            if _is_ignored(child.name):
+                continue
+            rel = f"{rel_prefix}/{child.name}"
+            if child.is_dir():
+                items.append(_folder_entry(child, rel))
+            elif child.is_file() and child.suffix.lower() in VIDEO_EXTS:
+                items.append(get_media_item(child, rel))
+    except Exception as e:
+        logger.error(f"Error listing {directory}: {e}")
+    return items
+
+
+def list_drives() -> list:
+    """Return immediate subdirectories of /media/ (skip junk, dotfiles)."""
+    if not MEDIA_ROOT.exists():
+        return []
+    try:
+        return [
+            d for d in sorted(MEDIA_ROOT.iterdir())
+            if d.is_dir() and not _is_ignored(d.name)
+        ]
+    except Exception as e:
+        logger.error(f"Error listing drives: {e}")
+        return []
+
+
+def index_root() -> dict:
+    """Root view: two virtual categories."""
+    return {
+        "path": "root",
+        "items": [
+            {"type": "folder", "name": CATEGORY_MOVIES, "path": CATEGORY_MOVIES},
+            {"type": "folder", "name": CATEGORY_SHOWS, "path": CATEGORY_SHOWS},
+        ],
+    }
+
+
+def _dedupe(items: list) -> list:
+    """Collapse duplicates across drives. First occurrence wins.
+
+    Videos: keyed by lowercase filename stem, so the same physical file present
+    on multiple drives surfaces once.
+    Folders: keyed by lowercase folder name. Two ``Breaking Bad`` folders on
+    different drives won't both appear; the second drive's contents are
+    reachable by browsing into that drive directly via filesystem paths.
+    """
+    seen: set = set()
+    result = []
+    for item in items:
+        if item.get("type") == "video":
+            stem = Path(item.get("file", "")).stem.lower()
+            key = ("v", stem)
+        else:
+            key = ("f", item.get("name", "").lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result
+
+
+def index_category(category: str) -> dict:
+    """Merge contents across all drives for a virtual category.
+
+    Rules per drive (immediate subdir of /media/):
+      - Subfolder named 'Movies' (case-insensitive): contents flow to Movies tab
+      - Subfolder named 'Shows'  (case-insensitive): contents flow to Shows tab
+      - Any other subfolder: the folder itself is added to Shows tab
+      - Loose video file at level 2: added as item to Shows tab
+
+    Duplicates across drives are collapsed (see ``_dedupe``).
+    """
+    items = []
+    for drive in list_drives():
+        try:
+            children = sorted(drive.iterdir())
+        except Exception as e:
+            logger.warning(f"Cannot read drive {drive}: {e}")
+            continue
+
+        for entry in children:
+            if _is_ignored(entry.name):
                 continue
 
-            rel = str(entry.relative_to(base_path)) if rel_path == "" else f"{rel_path}/{entry.name}"
+            rel = f"{drive.name}/{entry.name}"
 
-            if entry.is_dir():
-                # Folder
-                items.append({
-                    "type": "folder",
-                    "name": entry.name,
-                    "path": rel,
-                    "poster": find_poster(entry),
-                })
-            elif entry.is_file() and entry.suffix.lower() in VIDEO_EXTS:
-                # Video file
-                items.append(get_media_item(entry, rel))
-    except Exception as e:
-        logger.error(f"Error indexing {current_path}: {e}")
+            if entry.is_file():
+                if (
+                    category == CATEGORY_SHOWS
+                    and entry.suffix.lower() in VIDEO_EXTS
+                ):
+                    items.append(get_media_item(entry, rel))
+                continue
 
+            if not entry.is_dir():
+                continue
+
+            entry_lower = entry.name.lower()
+            if entry_lower == CATEGORY_MOVIES.lower():
+                if category == CATEGORY_MOVIES:
+                    items.extend(_list_dir_items(entry, rel))
+            elif entry_lower == CATEGORY_SHOWS.lower():
+                if category == CATEGORY_SHOWS:
+                    items.extend(_list_dir_items(entry, rel))
+            else:
+                if category == CATEGORY_SHOWS:
+                    items.append(_folder_entry(entry, rel))
+
+    return {"path": category, "items": _dedupe(items)}
+
+
+def index_path(rel_path: str) -> Optional[dict]:
+    """List a real filesystem path under /media/ (e.g. 'sample/Movies')."""
+    current = MEDIA_ROOT / rel_path
+    try:
+        if not current.resolve().is_relative_to(MEDIA_ROOT.resolve()):
+            return None
+    except (OSError, ValueError):
+        return None
+    if not current.exists() or not current.is_dir():
+        return None
     return {
-        "path": rel_path if rel_path else "root",
-        "items": items,
+        "path": rel_path,
+        "items": _list_dir_items(current, rel_path),
     }
 
 
@@ -223,9 +354,19 @@ def health():
 @app.route("/api/media", defaults={"path": ""}, methods=["GET"])
 @app.route("/api/media/<path:path>", methods=["GET"])
 def get_media(path: str):
-    """Get directory listing with metadata."""
+    """Get directory listing with metadata.
+
+    Root returns two virtual categories (Movies, Shows). The category paths
+    aggregate matching content across every drive under /media/. Any deeper
+    path resolves to a real filesystem location.
+    """
     try:
-        result = index_media(MEDIA_ROOT, path)
+        if path == "":
+            return jsonify(index_root())
+        if path in CATEGORIES:
+            return jsonify(index_category(path))
+
+        result = index_path(path)
         if result is None:
             raise NotFound(f"Path not found: {path}")
         return jsonify(result)
