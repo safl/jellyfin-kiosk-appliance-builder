@@ -191,36 +191,17 @@ def test_scripts_executable(cijoe: Cijoe):
 # --- Media directories ---
 
 
-def test_media_directories_exist(cijoe: Cijoe):
-    """Verify /media root and built-in 'sample' drive layout."""
-    for directory in ["/media", "/media/sample", "/media/sample/Movies"]:
-        err, state = cijoe.run(f"test -d {directory}")
-        assert not err, f"{directory} does not exist"
+def test_media_root_exists(cijoe: Cijoe):
+    """/media is the mount point for user-supplied drives."""
+    err, state = cijoe.run("test -d /media")
+    assert not err, "/media does not exist"
 
 
-def test_sample_media_present(cijoe: Cijoe):
-    """At least one sample video should land in /media/sample/Movies."""
-    err, state = cijoe.run(
-        "ls /media/sample/Movies/ | grep -E '\\.(mp4|mkv)$'"
-    )
-    assert not err, "no sample videos found in /media/sample/Movies"
-
-
-def test_indexer_root_returns_categories(cijoe: Cijoe):
-    """Root API exposes Movies and Shows virtual categories."""
+def test_indexer_root_empty_with_no_drives(cijoe: Cijoe):
+    """With no drives plugged in, the Media Library has no Collections."""
     err, state = cijoe.run("curl -sf http://localhost:8080/api/media")
     assert not err, "indexer root failed"
-    output = state.output()
-    assert '"name": "Movies"' in output or '"name":"Movies"' in output
-    assert '"name": "Shows"' in output or '"name":"Shows"' in output
-
-
-def test_indexer_movies_category_finds_samples(cijoe: Cijoe):
-    """Movies category should aggregate sample/Movies contents."""
-    err, state = cijoe.run("curl -sf http://localhost:8080/api/media/Movies")
-    assert not err, "indexer Movies failed"
-    output = state.output()
-    assert "sample/Movies" in output, "sample movies not surfaced via Movies category"
+    assert '"items": []' in state.output() or '"items":[]' in state.output()
 
 
 def test_jkab_cache_directory(cijoe: Cijoe):

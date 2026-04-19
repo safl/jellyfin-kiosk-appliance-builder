@@ -31,10 +31,13 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ### Library & Media
 
-- **Structure**: Movies, Shows, Videos folders in `/media/` (created automatically)
-- **Metadata**: `.nfo` files + poster art (created by MediaElch on separate machine)
+- **Media Library**: every drive under `/media/` is one source. Top-level
+  folder names on each drive become **Collections** (Movies, Shows, Yoga,
+  Documentaries, …). Same-named collections from multiple drives are merged.
+- **Metadata**: `.nfo` files + poster art alongside the videos (created by
+  MediaElch on a separate machine — see [Building a media library](#building-a-media-library))
 - **Auto-mount**: USB/SD drives auto-mount to `/media/<label>` via udev rules
-- **Offline**: All metadata cached locally; no internet required after setup
+- **Offline**: all metadata cached on the drive; no internet required after setup
 - **Filesystem**: NTFS and exFAT support for external media
 
 ### System
@@ -47,20 +50,79 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 - **Updates**: disabled — update by reflashing the image
 - **Debug**: SSH enabled (root/root)
 
-## Install
+## Building a media library
 
-### Prerequisites
+The kiosk image ships **empty** — no built-in samples, no scraping. Prepare
+your drive on another machine once, then plug it in.
 
-- External media drive (USB or SD card) with video files organized as:
-  - `Movies/<title>/<video.mp4>`
-  - `Shows/<show>/<season>/<episode.mp4>`
-  - `Videos/<collection>/<video.mp4>`
+### Drive layout
 
-### Setup (one-time, on separate machine)
+Any drive (USB stick, SSD, SD card) is treated as a Media Library *source*.
+Each top-level folder on the drive becomes a Collection in the UI, so name
+them however you want — `Movies`, `Shows`, `Yoga`, `Documentaries`,
+`Concerts`, etc. Multiple drives with the same Collection name (e.g., two
+drives both have a `Movies/` folder) merge automatically.
+
+Inside each Collection, follow the same conventions Kodi uses, so a single
+scrape works for both Kodi and JKAB.
+
+```
+MyDrive/
+├── Movies/
+│   ├── Fletch (1985)/
+│   │   ├── Fletch.mkv
+│   │   ├── Fletch.nfo
+│   │   ├── Fletch-poster.jpg
+│   │   ├── Fletch-fanart.jpg
+│   │   └── Fletch-thumb.jpg
+│   └── Big Buck Bunny (2008)/
+│       ├── big_buck_bunny.mkv
+│       ├── big_buck_bunny.nfo
+│       └── big_buck_bunny-poster.jpg
+├── Shows/
+│   └── Columbo/
+│       ├── tvshow.nfo
+│       ├── poster.jpg
+│       ├── fanart.jpg
+│       ├── season05-poster.jpg
+│       └── Season 05/
+│           ├── Columbo S05E01.mkv
+│           ├── Columbo S05E01.nfo
+│           └── Columbo S05E01-thumb.jpg
+└── Yoga/
+    └── David Swenson/
+        ├── tvshow.nfo
+        ├── poster.jpg
+        └── Season 01/
+            ├── Lesson 01.mkv
+            └── Lesson 01.nfo
+```
+
+A movie folder containing **exactly one** video file collapses into a single
+playable entry, so `Fletch (1985)/` shows up as one tile (not a folder you
+have to descend into) and clicking it opens the details view.
+
+### Generating .nfo and artwork with MediaElch
 
 1. Install [MediaElch](https://github.com/Komet/MediaElch) (free, open-source)
-2. Point it at your media drive and fetch metadata from themoviedb.org / thetvdb.com
-3. Result: `.nfo` files + poster art alongside each video file
+2. Add your drive's `Movies/` folder as a Movie Source, and `Shows/` as a TV Source
+3. Use **Search** (single title) or **Scan** (whole folder) to fetch metadata
+   from themoviedb.org / thetvdb.com
+4. Save with **Movie Files**: `MovieName/MovieName.{ext}` and **TV Show Files**:
+   `Show/Season X/Show SXXEYY.{ext}` — these are MediaElch's defaults and what
+   JKAB expects
+5. Enable poster, fanart, and thumb downloads in MediaElch's settings — JKAB
+   recognises both Kodi MovieFolder names (`<title>-poster.jpg`) and the
+   generic ones (`poster.jpg`, `cover.jpg`, `fanart.jpg`)
+
+### Filesystem
+
+The drive can be **NTFS** or **exFAT** (preferred for cross-OS use). Filesystem
+labels become the mount point name; avoid labels named `Movies`, `Shows`, etc.
+since those collide with Collection names — JKAB will rename them with a
+numeric suffix if needed.
+
+## Install
 
 ### Deploy to kiosk
 

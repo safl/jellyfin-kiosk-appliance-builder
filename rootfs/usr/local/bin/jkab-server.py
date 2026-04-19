@@ -260,13 +260,30 @@ def list_drives() -> list:
         return []
 
 
+def _collection_sort_key(name: str) -> tuple:
+    """Custom-then-Shows-then-Movies ordering for the tab bar.
+
+    Custom collections (Yoga, Documentaries, Concerts, ...) come first
+    alphabetically, then Shows, then Movies — keeping the highest-traffic
+    collections at the right edge for fast access.
+    """
+    lower = name.lower()
+    if lower == "movies":
+        rank = 2
+    elif lower == "shows":
+        rank = 1
+    else:
+        rank = 0
+    return (rank, lower)
+
+
 def discover_collections() -> list:
     """Find all unique 2nd-level folder names across every drive.
 
     Each unique name is a Collection — e.g. ``Movies``, ``Shows``, ``Yoga``.
-    Collections are case-folded for comparison but the first-seen casing wins
-    as the display name. Result preserves discovery order across drives so
-    well-known names (``Movies``, ``Shows``) tend to come first when present.
+    Names are case-folded for comparison; the first-seen casing wins as the
+    display name. Sorted: custom collections first (alphabetically), then
+    Shows, then Movies.
     """
     seen: dict = {}
     for drive in list_drives():
@@ -281,7 +298,7 @@ def discover_collections() -> list:
             key = entry.name.lower()
             if key not in seen:
                 seen[key] = entry.name
-    return list(seen.values())
+    return sorted(seen.values(), key=_collection_sort_key)
 
 
 def index_root() -> dict:
@@ -344,7 +361,13 @@ def index_collection(collection: str) -> Optional[dict]:
 
 
 def index_path(rel_path: str) -> Optional[dict]:
-    """List a real filesystem path under /media/ (e.g. 'sample/Movies')."""
+    """List a real filesystem path under /media/ (e.g. 'sample/Movies').
+
+    Adds ``view_hint = "list"`` when the directory is a TV show root
+    (Kodi convention: contains ``tvshow.nfo``). The player uses this to
+    pick a vertical episode list rather than the poster grid for season
+    listings — keeps Columbo and Turtles consistent.
+    """
     current = MEDIA_ROOT / rel_path
     try:
         if not current.resolve().is_relative_to(MEDIA_ROOT.resolve()):
@@ -353,10 +376,13 @@ def index_path(rel_path: str) -> Optional[dict]:
         return None
     if not current.exists() or not current.is_dir():
         return None
-    return {
+    response = {
         "path": rel_path,
         "items": _list_dir_items(current, rel_path),
     }
+    if (current / "tvshow.nfo").exists():
+        response["view_hint"] = "list"
+    return response
 
 
 # --- Progress tracking ---
