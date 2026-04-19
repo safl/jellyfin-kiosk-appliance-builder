@@ -17,6 +17,8 @@ import urllib.request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+JKAB_VERSION = "v0.7.0"
+
 # Configuration
 SERVER_URL = "http://localhost:8080"
 STREAM_BASE = f"{SERVER_URL}/stream"
@@ -200,18 +202,26 @@ class UIRenderer:
             return None
 
     def render_grid(
-        self, title: str, items: list, selected: int, api: MediaServerAPI
+        self,
+        title: str,
+        items: list,
+        selected: int,
+        api: MediaServerAPI,
+        tabs: Optional[list] = None,
+        selected_tab: int = 0,
     ):
-        """Render grid of items (posters)."""
+        """Render grid of items (posters), with optional Collections tab bar."""
         self.screen.fill(self.BG)
 
-        # Title bar
-        title_h = int(60 * max(1, self.height / 1080))
-        title_bar = pygame.Rect(0, 0, self.width, title_h)
-        title_surf = self.font_title.render(title, True, self.TEXT)
-        self.screen.blit(title_surf, (40, (title_h - title_surf.get_height()) // 2))
+        s = max(1, self.height / 1080)
+        title_h = int(60 * s)
 
-        # Grid layout
+        if tabs:
+            self._render_tab_bar(tabs, selected_tab, title_h)
+        else:
+            title_surf = self.font_title.render(title, True, self.TEXT)
+            self.screen.blit(title_surf, (40, (title_h - title_surf.get_height()) // 2))
+
         start_y = title_h + 40
         grid_x_start = 40
         cols = self.grid_cols
@@ -273,15 +283,54 @@ class UIRenderer:
             title_surf = self.font_small.render(title_text, True, self.TEXT)
             self.screen.blit(title_surf, (x, y + poster_h + 8))
 
-        # Bottom hint bar
-        hint_bar_h = 50
-        hint_bar = pygame.Rect(0, self.height - hint_bar_h, self.width, hint_bar_h)
-        pygame.draw.rect(self.screen, (20, 20, 20), hint_bar)
-        hint_text = "↑↓←→ Navigate   Enter Select   Esc Back   R Reload"
-        hint_surf = self.font_small.render(hint_text, True, self.DIM)
-        self.screen.blit(hint_surf, (40, self.height - hint_bar_h + 12))
+        self._render_hint_bar(
+            "↑↓←→ Navigate   Enter Select   Esc Back   R Reload   [/] Tabs"
+        )
 
         pygame.display.flip()
+
+    def _render_tab_bar(self, tabs: list, selected_tab: int, height: int):
+        """Draw a horizontal Collections tab bar at the top."""
+        s = max(1, self.height / 1080)
+        pygame.draw.rect(self.screen, (15, 15, 15), (0, 0, self.width, height))
+
+        pad = int(28 * s)
+        gap = int(20 * s)
+        x = pad
+        y_text = (height - self.font.get_height()) // 2
+        for i, name in enumerate(tabs):
+            label = name
+            label_surf = self.font.render(label, True, self.TEXT if i == selected_tab else self.DIM)
+            label_w = label_surf.get_width()
+            if i == selected_tab:
+                underline_y = height - int(6 * s)
+                pygame.draw.rect(
+                    self.screen,
+                    self.ACCENT,
+                    (x, underline_y, label_w, int(4 * s)),
+                )
+            self.screen.blit(label_surf, (x, y_text))
+            x += label_w + gap
+
+        lib_surf = self.font_small.render("Media Library", True, self.DIM)
+        self.screen.blit(
+            lib_surf,
+            (self.width - lib_surf.get_width() - pad, (height - lib_surf.get_height()) // 2),
+        )
+
+    def _render_hint_bar(self, hint_text: str):
+        """Draw the bottom hint bar with the JKAB version anchored bottom-right."""
+        hint_bar_h = 50
+        pygame.draw.rect(
+            self.screen, (20, 20, 20), (0, self.height - hint_bar_h, self.width, hint_bar_h)
+        )
+        hint_surf = self.font_small.render(hint_text, True, self.DIM)
+        self.screen.blit(hint_surf, (40, self.height - hint_bar_h + 12))
+        ver_surf = self.font_small.render(f"JKAB {JKAB_VERSION}", True, self.DIM)
+        self.screen.blit(
+            ver_surf,
+            (self.width - ver_surf.get_width() - 20, self.height - hint_bar_h + 12),
+        )
 
     def render_details(self, item: dict, api: MediaServerAPI, action_text: str = "Play"):
         """Render item details (poster + metadata)."""
@@ -377,10 +426,7 @@ class UIRenderer:
                 self.screen.blit(line_surf, (meta_x, meta_y))
                 meta_y += line_surf.get_height() + 4
 
-        # Action button
-        action_y = self.height - 80
-        action_surf = self.font.render(f"Enter {action_text}   Esc Back", True, self.TEXT)
-        self.screen.blit(action_surf, (40, action_y))
+        self._render_hint_bar(f"Enter {action_text}   Esc Back")
 
         pygame.display.flip()
 
@@ -452,6 +498,10 @@ class UIRenderer:
                         return "quit"
                     elif event.key in (pygame.K_r, pygame.K_F5):
                         return "reload"
+                    elif event.key in (pygame.K_PAGEDOWN, pygame.K_RIGHTBRACKET, pygame.K_TAB):
+                        return "next_tab"
+                    elif event.key in (pygame.K_PAGEUP, pygame.K_LEFTBRACKET):
+                        return "prev_tab"
             pygame.time.wait(50)
 
     def quit(self):
@@ -583,11 +633,13 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
             selected = 0
 
             while True:
-                ui.render_grid(tabs[selected_tab], items, selected, api)
+                ui.render_grid(
+                    tabs[selected_tab], items, selected, api,
+                    tabs=tabs, selected_tab=selected_tab,
+                )
                 key = ui.wait_key()
 
                 cols = ui.grid_cols
-                row = selected // cols
                 col = selected % cols
 
                 if key == "up":
@@ -595,19 +647,23 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
                 elif key == "down":
                     selected = min(len(items) - 1, selected + cols)
                 elif key == "left":
-                    # If at left edge of grid, switch tab
                     if col == 0 and selected_tab > 0:
                         selected_tab -= 1
                         break
                     else:
                         selected = max(0, selected - 1)
                 elif key == "right":
-                    # If at right edge of grid, switch tab
                     if col == cols - 1 and selected_tab < len(tabs) - 1:
                         selected_tab += 1
                         break
                     else:
                         selected = min(len(items) - 1, selected + 1)
+                elif key == "next_tab" and len(tabs) > 1:
+                    selected_tab = (selected_tab + 1) % len(tabs)
+                    break
+                elif key == "prev_tab" and len(tabs) > 1:
+                    selected_tab = (selected_tab - 1) % len(tabs)
+                    break
                 elif key == "select":
                     item = items[selected]
                     if item["type"] == "folder":
@@ -633,9 +689,8 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
                     return
 
         else:
-            ui.show_message(f"No items in {tabs[selected_tab]}")
+            ui.show_message(f"Empty: {tabs[selected_tab]}")
             time.sleep(2)
-            # Try next tab
             selected_tab = (selected_tab + 1) % len(tabs)
 
 
