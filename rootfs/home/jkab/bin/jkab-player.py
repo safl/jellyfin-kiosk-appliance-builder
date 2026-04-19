@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 import pygame
+import urllib.parse
 import urllib.request
 
 logging.basicConfig(level=logging.INFO)
@@ -46,10 +47,16 @@ class MediaServerAPI:
         self.server = server_url
         self.cache = {}
 
+    @staticmethod
+    def _encode(path: str) -> str:
+        """Percent-encode each path segment, preserve slashes."""
+        return urllib.parse.quote(path, safe="/")
+
     def get_media(self, path: str = "") -> Optional[dict]:
         """Get media listing for a path."""
         try:
-            url = f"{self.server}/api/media" + (f"/{path}" if path else "")
+            suffix = f"/{self._encode(path)}" if path else ""
+            url = f"{self.server}/api/media{suffix}"
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read())
@@ -57,16 +64,15 @@ class MediaServerAPI:
             return data
         except Exception as e:
             logger.error(f"Failed to get media {path}: {e}")
-            # Return cached data if available
             return self.cache.get(path)
 
     def get_stream_url(self, media_path: str) -> str:
         """Get stream URL for a video."""
-        return f"{STREAM_BASE}/{media_path}"
+        return f"{STREAM_BASE}/{self._encode(media_path)}"
 
     def get_image_url(self, image_path: str) -> str:
         """Get image URL."""
-        return f"{IMAGE_BASE}/{image_path}"
+        return f"{IMAGE_BASE}/{self._encode(image_path)}"
 
     def save_progress(self, media_path: str, position: int, duration: int):
         """Save watch progress."""
@@ -209,6 +215,7 @@ class UIRenderer:
         api: MediaServerAPI,
         tabs: Optional[list] = None,
         selected_tab: int = 0,
+        tab_focus: bool = False,
     ):
         """Render grid of items (posters), with optional Collections tab bar."""
         self.screen.fill(self.BG)
@@ -217,7 +224,7 @@ class UIRenderer:
         title_h = int(60 * s)
 
         if tabs:
-            self._render_tab_bar(tabs, selected_tab, title_h)
+            self._render_tab_bar(tabs, selected_tab, title_h, tab_focus)
         else:
             title_surf = self.font_title.render(title, True, self.TEXT)
             self.screen.blit(title_surf, (40, (title_h - title_surf.get_height()) // 2))
@@ -240,19 +247,9 @@ class UIRenderer:
             x = grid_x_start + col * (poster_w + gap)
             y = start_y + row * (poster_h + gap + 30)  # Extra space for title
 
-            # Load poster image
             poster_img = None
-            if "poster" in item:
-                parent_path = (
-                    item.get("path", "").rsplit("/", 1)[0]
-                    if "/" in item.get("path", "")
-                    else ""
-                )
-                if parent_path:
-                    image_url = api.get_image_url(f"{parent_path}/{item['poster']}")
-                else:
-                    image_url = api.get_image_url(item["poster"])
-                poster_img = self._load_image(image_url)
+            if item.get("poster"):
+                poster_img = self._load_image(api.get_image_url(item["poster"]))
 
             # Draw poster background or placeholder
             if poster_img:
@@ -284,30 +281,44 @@ class UIRenderer:
             self.screen.blit(title_surf, (x, y + poster_h + 8))
 
         self._render_hint_bar(
-            "↑↓←→ Navigate   Enter Select   Esc Back   R Reload   [/] Tabs"
+            "↑↓←→ Navigate   Enter Select   Esc Back   ↑ from top: switch Collection   R Reload"
         )
 
         pygame.display.flip()
 
-    def _render_tab_bar(self, tabs: list, selected_tab: int, height: int):
-        """Draw a horizontal Collections tab bar at the top."""
+    def _render_tab_bar(self, tabs: list, selected_tab: int, height: int, tab_focus: bool = False):
+        """Draw a horizontal Collections tab bar at the top.
+
+        When ``tab_focus`` is True, the active tab gets a chip background and
+        a thicker underline so it's visually obvious that DPad input now acts
+        on the bar (left/right switches collection, down returns to grid).
+        """
         s = max(1, self.height / 1080)
-        pygame.draw.rect(self.screen, (15, 15, 15), (0, 0, self.width, height))
+        bar_bg = (28, 28, 28) if tab_focus else (15, 15, 15)
+        pygame.draw.rect(self.screen, bar_bg, (0, 0, self.width, height))
 
         pad = int(28 * s)
         gap = int(20 * s)
         x = pad
         y_text = (height - self.font.get_height()) // 2
         for i, name in enumerate(tabs):
-            label = name
-            label_surf = self.font.render(label, True, self.TEXT if i == selected_tab else self.DIM)
+            label_surf = self.font.render(name, True, self.TEXT if i == selected_tab else self.DIM)
             label_w = label_surf.get_width()
             if i == selected_tab:
+                if tab_focus:
+                    chip_pad = int(10 * s)
+                    pygame.draw.rect(
+                        self.screen,
+                        (60, 60, 60),
+                        (x - chip_pad, y_text - chip_pad // 2,
+                         label_w + chip_pad * 2, label_surf.get_height() + chip_pad),
+                        border_radius=6,
+                    )
                 underline_y = height - int(6 * s)
                 pygame.draw.rect(
                     self.screen,
                     self.ACCENT,
-                    (x, underline_y, label_w, int(4 * s)),
+                    (x, underline_y, label_w, int(6 * s) if tab_focus else int(4 * s)),
                 )
             self.screen.blit(label_surf, (x, y_text))
             x += label_w + gap
@@ -336,19 +347,9 @@ class UIRenderer:
         """Render item details (poster + metadata)."""
         self.screen.fill(self.BG)
 
-        # Load poster
         poster_img = None
-        if "poster" in item:
-            parent_path = (
-                item.get("path", "").rsplit("/", 1)[0]
-                if "/" in item.get("path", "")
-                else ""
-            )
-            if parent_path:
-                image_url = api.get_image_url(f"{parent_path}/{item['poster']}")
-            else:
-                image_url = api.get_image_url(item["poster"])
-            poster_img = self._load_image(image_url)
+        if item.get("poster"):
+            poster_img = self._load_image(api.get_image_url(item["poster"]))
 
         # Poster on left (60% width)
         poster_w = int(self.width * 0.3)
@@ -618,6 +619,9 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
         return
 
     selected_tab = 0
+    tab_focus = False  # Persists across tab switches: stay in tab focus
+                       # while the user cycles collections, until they
+                       # press DOWN or SELECT to commit to the grid.
 
     while True:
         ui.show_message(f"Loading {tabs[selected_tab]}...")
@@ -636,14 +640,40 @@ def main_menu(ui: UIRenderer, api: MediaServerAPI):
                 ui.render_grid(
                     tabs[selected_tab], items, selected, api,
                     tabs=tabs, selected_tab=selected_tab,
+                    tab_focus=tab_focus,
                 )
                 key = ui.wait_key()
 
+                if tab_focus:
+                    if key == "left" and len(tabs) > 1:
+                        selected_tab = (selected_tab - 1) % len(tabs)
+                        break
+                    elif key == "right" and len(tabs) > 1:
+                        selected_tab = (selected_tab + 1) % len(tabs)
+                        break
+                    elif key in ("down", "select", "back"):
+                        tab_focus = False
+                    elif key == "quit":
+                        return
+                    elif key == "reload":
+                        new_tabs, new_paths = _load_tabs(api)
+                        if new_tabs:
+                            tabs, tab_paths = new_tabs, new_paths
+                            selected_tab = min(selected_tab, len(tabs) - 1)
+                        api.cache.clear()
+                        ui.image_cache.clear()
+                        break
+                    continue
+
                 cols = ui.grid_cols
                 col = selected % cols
+                row = selected // cols
 
                 if key == "up":
-                    selected = max(0, selected - cols)
+                    if row == 0 and len(tabs) > 1:
+                        tab_focus = True
+                    else:
+                        selected = max(0, selected - cols)
                 elif key == "down":
                     selected = min(len(items) - 1, selected + cols)
                 elif key == "left":

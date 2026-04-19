@@ -152,8 +152,11 @@ def find_poster(media_dir: Path) -> Optional[str]:
     return None
 
 
-def get_media_item(file_path: Path, rel_path: str) -> dict:
-    """Build media item dict from file and adjacent .nfo."""
+def get_media_item(file_path: Path, rel_path: str, display_name: Optional[str] = None) -> dict:
+    """Build media item dict from file and adjacent .nfo. ``poster`` is a
+    full relative path. ``display_name`` overrides the inferred title (used
+    when collapsing a movie folder so the folder name surfaces in the grid).
+    """
     nfo_path = file_path.with_suffix(".nfo")
     metadata = parse_nfo_file(nfo_path) if nfo_path.exists() else {}
 
@@ -161,17 +164,19 @@ def get_media_item(file_path: Path, rel_path: str) -> dict:
         metadata["title"] = file_path.stem
 
     poster = find_poster_for_video(file_path)
+    name = display_name or metadata.get("title", file_path.stem)
 
     item = {
         "type": "video",
-        "name": metadata.get("title", file_path.stem),
+        "name": name,
         "file": file_path.name,
         "path": rel_path,
         "metadata": metadata,
     }
 
+    rel_dir = rel_path.rsplit("/", 1)[0] if "/" in rel_path else ""
     if poster:
-        item["poster"] = poster
+        item["poster"] = f"{rel_dir}/{poster}" if rel_dir else poster
 
     return item
 
@@ -182,7 +187,7 @@ def _is_ignored(name: str) -> bool:
 
 
 def _folder_entry(directory: Path, rel_path: str) -> dict:
-    """Build a folder item dict."""
+    """Build a folder item dict. ``poster`` is a full relative path."""
     item = {
         "type": "folder",
         "name": directory.name,
@@ -190,12 +195,36 @@ def _folder_entry(directory: Path, rel_path: str) -> dict:
     }
     poster = find_poster(directory)
     if poster:
-        item["poster"] = poster
+        item["poster"] = f"{rel_path}/{poster}"
     return item
 
 
+def _single_video_in(directory: Path) -> Optional[Path]:
+    """Return the only video file directly in ``directory`` if it has exactly
+    one video and zero non-ignored subdirectories. Used to collapse Kodi-style
+    movie folders into a single playable item."""
+    videos = []
+    try:
+        for child in directory.iterdir():
+            if _is_ignored(child.name):
+                continue
+            if child.is_dir():
+                return None
+            if child.is_file() and child.suffix.lower() in VIDEO_EXTS:
+                videos.append(child)
+                if len(videos) > 1:
+                    return None
+    except Exception:
+        return None
+    return videos[0] if len(videos) == 1 else None
+
+
 def _list_dir_items(directory: Path, rel_prefix: str) -> list:
-    """List immediate folder/video children of a directory."""
+    """List immediate folder/video children of a directory.
+
+    Collapses Kodi-style movie folders (one video, no subdirs) into a single
+    video item so the user reaches Play in two clicks instead of three.
+    """
     items = []
     try:
         for child in sorted(directory.iterdir()):
@@ -203,7 +232,13 @@ def _list_dir_items(directory: Path, rel_prefix: str) -> list:
                 continue
             rel = f"{rel_prefix}/{child.name}"
             if child.is_dir():
-                items.append(_folder_entry(child, rel))
+                video = _single_video_in(child)
+                if video is not None:
+                    items.append(get_media_item(
+                        video, f"{rel}/{video.name}", display_name=child.name
+                    ))
+                else:
+                    items.append(_folder_entry(child, rel))
             elif child.is_file() and child.suffix.lower() in VIDEO_EXTS:
                 items.append(get_media_item(child, rel))
     except Exception as e:
