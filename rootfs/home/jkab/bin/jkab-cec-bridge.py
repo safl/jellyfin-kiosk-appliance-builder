@@ -42,10 +42,9 @@ log("Callback registered")
 cec.set_active_source()
 log("Active source set — waiting for keys")
 
-count = 0
+# Do not re-assert active source: that would wake the TV whenever the
+# user has intentionally turned it off. The CEC link stays open via
+# libcec without polling, and on TV power-on the user re-selects this
+# HDMI input (or modern TVs auto-resume to the last active source).
 while True:
-    time.sleep(1)
-    count += 1
-    if count % 30 == 0:
-        cec.set_active_source()
-        log("Re-asserted active source")
+    time.sleep(60)

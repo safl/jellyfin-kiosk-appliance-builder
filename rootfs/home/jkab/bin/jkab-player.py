@@ -18,7 +18,7 @@ import urllib.request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-JKAB_VERSION = "v0.8.1"
+JKAB_VERSION = "v0.8.2"
 
 
 def breadcrumb_segments(path: str) -> list:
