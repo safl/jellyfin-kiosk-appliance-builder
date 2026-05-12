@@ -8,7 +8,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Optional
 
 import pygame
@@ -143,7 +142,7 @@ class NavigationStack:
     def __init__(self):
         self.stack = [ViewContext(ViewState.MAIN_MENU)]
 
-    def push(self, state: ViewState, data: dict = None):
+    def push(self, state: ViewState, data: Optional[dict] = None):
         """Push a new view state."""
         self.stack.append(ViewContext(state, data or {}, 0))
 
@@ -275,9 +274,6 @@ class UIRenderer:
         poster_w = self.poster_w
         poster_h = self.poster_h
         gap = self.grid_gap
-
-        # Calculate rows needed
-        rows = (len(items) + cols - 1) // cols
 
         # Render posters
         for i, item in enumerate(items):
@@ -662,11 +658,9 @@ class UIRenderer:
         total_h = row_h * len(items)
         if total_h <= list_h:
             scroll_offset = 0
-            visible = len(items)
         else:
             scroll_offset = (selected + 0.5) * row_h - list_h / 2
             scroll_offset = max(0, min(scroll_offset, total_h - list_h))
-            visible = max(1, list_h // row_h)
 
         text_x = margin + thumb_w + int(28 * s)
         text_w = self.width - text_x - margin
@@ -962,7 +956,6 @@ def browse_grid(
 
         cols = ui.grid_cols
         row = selected // cols
-        col = selected % cols
 
         if key == "up":
             if row == 0 and tabs and len(tabs) > 1:
@@ -1140,7 +1133,7 @@ def main():
     ui.show_message("Connecting to server...")
 
     # Wait for server to be ready
-    for attempt in range(60):
+    for _ in range(60):
         try:
             api.get_media()
             logger.info("Server ready")

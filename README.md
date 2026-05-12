@@ -62,7 +62,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 - **System user**: `tellybox` / `tellybox` (auto-login, passwordless sudo)
 - **Network**: NetworkManager (configure via `nmtui` over SSH)
-- **Audio**: PulseAudio
+- **Audio**: PipeWire + WirePlumber (routes HDMI audio out of the box)
 - **GPU**: Intel VA-API hardware video decoding
 - **Power button**: clean shutdown via systemd-logind
 - **Updates**: disabled — update by reflashing the image

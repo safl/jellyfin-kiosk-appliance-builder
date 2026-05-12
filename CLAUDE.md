@@ -145,15 +145,13 @@ The appliance is provisioned by cloud-init via `auxiliary/cloudinit-userdata.use
 ### Main Provisions:
 - **System user**: `tellybox` / `tellybox` (passwordless sudo, auto-login on tty1)
 - **Hostname**: `tellybox`
-- **Packages**: openbox, xinit, dbus, NetworkManager, intel-media-va-driver, mpv, python3-pygame, libcec-dev, plymouth, openssh-server
-- **Pip**: Flask, tomli, tomli-w (for tellybox-server)
-- **Media dirs**: `/media/Movies`, `/media/Shows`, `/media/Videos`
-- **Cache**: `/home/tellybox/.cache/tellybox` (for tellybox-server progress TOML)
-- **CEC**: cec-utils + udev rules for Pulse-Eight CEC adapter
-- **Automount**: udisks2 + udev rules for `/media/<label>` USB/SD mounting
+- **Packages (apt)**: kiosk (openbox, xinit, x11-xserver-utils, dbus-user-session, unclutter), playback (mpv, intel-media-va-driver-non-free, i965-va-driver-shaders, mesa-va-drivers), audio (pipewire-audio, wireplumber, pulseaudio-utils), CEC (cec-utils, libcec-dev, xdotool), automount (udisks2, ntfs-3g, exfatprogs), Python (python3, python3-pip, python3-pygame), networking (network-manager, openssh-server, curl, ca-certificates), boot (plymouth-themes)
+- **Pip**: Flask, tomli, tomli-w (for tellybox-server); cec (libcec Python binding for the CEC bridge — Debian has no `python3-cec` package)
+- **Cache**: `/home/tellybox/.cache/tellybox` (tellybox-server writes resume-position TOML here)
+- **CEC**: cec-utils + udev rules for Pulse-Eight USB CEC adapter (VID 2548)
+- **Automount**: udisks2 + udev rules for `/media/<label>` USB/SD mounting (no media dirs pre-created — `/media/` is empty until a drive is plugged in)
 - **Boot**: Plymouth splash, quiet kernel, BIOS-safe fstab fixup
 - **Systemd**: `tellybox-server.service` enabled (runs as user `tellybox`)
-- **Sample Media**: Sintel, Big Buck Bunny → `/media/Misc/` (CC test videos)
 
 ### First-Boot Sequence:
 1. Cloud-init runs provisioning (packages, scripts, systemd units)
@@ -175,7 +173,7 @@ Test coverage in `tests/test_appliance.py`:
 - **Kiosk**: tty1 autologin (tellybox), openbox setup, scripts executable
 - **Locale**: `/etc/tellybox.conf` generated with correct values
 - **Config**: udev CEC + automount rules, logind power button
-- **Media**: `/media/{Movies,Shows,Videos}` directories exist, `/home/tellybox/.cache/tellybox` exists
+- **Media**: `/media/` exists as the mount root (no Movies/Shows/Videos pre-created); `/home/tellybox/.cache/tellybox` exists
 
 Tests run via **cijoe testrunner** (pytest) over SSH to the QEMU guest.
 
