@@ -1,7 +1,7 @@
 #cloud-config
 
-hostname: jkab-tv
-timezone: __JKAB_TIMEZONE__
+hostname: tellybox
+timezone: __TELLYBOX_TIMEZONE__
 
 growpart:
   mode: auto
@@ -20,18 +20,18 @@ chpasswd:
 ssh_pwauth: true
 
 users:
-  - name: jkab
-    gecos: JKAB
+  - name: tellybox
+    gecos: Tellybox
     groups: [sudo, audio, video, input, plugdev, render]
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
-    plain_text_passwd: jkab
+    plain_text_passwd: tellybox
 
 runcmd:
-  - mkdir -p /home/jkab/.config/openbox
-  - mkdir -p /home/jkab/bin
-  - chown -R jkab:jkab /home/jkab
+  - mkdir -p /home/tellybox/.config/openbox
+  - mkdir -p /home/tellybox/bin
+  - chown -R tellybox:tellybox /home/tellybox
 
   # System packages
   - apt-get update -q
@@ -39,12 +39,12 @@ runcmd:
   - DEBIAN_FRONTEND=noninteractive apt-get install -qy openbox xinit x11-xserver-utils dbus-user-session unclutter cec-utils xdotool network-manager intel-media-va-driver-non-free i965-va-driver-shaders mesa-va-drivers udisks2 ntfs-3g exfatprogs curl python3 python3-pip python3-pygame libcec-dev mpv plymouth-themes ca-certificates openssh-server pipewire-audio wireplumber pulseaudio-utils
   - pip3 install --break-system-packages Flask tomli tomli-w cec
 
-  # /media holds drives mounted by jkab-automount.sh. Empty by default —
+  # /media holds drives mounted by tellybox-automount.sh. Empty by default —
   # plug in a drive containing collection folders (Movies/, Shows/, ...).
-  - mkdir -p /home/jkab/.cache/jkab
+  - mkdir -p /home/tellybox/.cache/tellybox
 
-  # Enable jkab-server systemd service
-  - systemctl enable jkab-server
+  # Enable tellybox-server systemd service
+  - systemctl enable tellybox-server
 
   - systemctl set-default multi-user.target
   - systemctl restart systemd-logind
@@ -80,7 +80,7 @@ runcmd:
 
   - touch /etc/cloud/cloud-init.disabled
 
-final_message: "JKAB appliance provisioned after $UPTIME seconds"
+final_message: "Tellybox appliance provisioned after $UPTIME seconds"
 power_state:
   mode: poweroff
   message: "Provisioning complete, shutting down"

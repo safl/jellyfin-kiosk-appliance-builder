@@ -1,6 +1,6 @@
 ---
 doc: |
-  Run the Janky Kiosk Appliance
+  Run the Tellybox
   =============================
 
   Boot the baked appliance image in QEMU with a graphical display.
@@ -12,15 +12,15 @@ steps:
 - name: guest_kill
   uses: qemu.guest_kill
   with:
-    guest_name: jkab-dk-x86_64
+    guest_name: tellybox-dk-x86_64
 
 - name: guest_initialize
   uses: qemu.guest_initialize
   with:
-    guest_name: jkab-dk-x86_64
-    system_image_name: jkab-dk-x86_64
+    guest_name: tellybox-dk-x86_64
+    system_image_name: tellybox-dk-x86_64
 
 - name: guest_run
   uses: guest_run
   with:
-    guest_name: jkab-dk-x86_64
+    guest_name: tellybox-dk-x86_64

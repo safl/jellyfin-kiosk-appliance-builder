@@ -1,4 +1,4 @@
-name: Build JKAB Image
+name: Build Tellybox Image
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
 
     - name: Convert to compressed raw
       run: |
-        DISK="$HOME/system_imaging/disk/jkab-dk-x86_64"
+        DISK="$HOME/system_imaging/disk/tellybox-dk-x86_64"
         echo "=== Image sizes ==="
         qemu-img info "$DISK.qcow2"
         ls -l "$DISK.qcow2"
@@ -47,16 +47,16 @@ jobs:
     - name: Show artifact sizes
       run: |
         echo "=== Artifacts to upload ==="
-        ls -l ~/system_imaging/disk/jkab-dk-x86_64.qcow2
-        ls -l ~/system_imaging/disk/jkab-dk-x86_64.raw.gz
+        ls -l ~/system_imaging/disk/tellybox-dk-x86_64.qcow2
+        ls -l ~/system_imaging/disk/tellybox-dk-x86_64.raw.gz
 
     - name: Upload disk image
       uses: actions/upload-artifact@v5
       with:
-        name: jkab-dk-x86_64
+        name: tellybox-dk-x86_64
         path: |
-          ~/system_imaging/disk/jkab-dk-x86_64.qcow2
-          ~/system_imaging/disk/jkab-dk-x86_64.raw.gz
+          ~/system_imaging/disk/tellybox-dk-x86_64.qcow2
+          ~/system_imaging/disk/tellybox-dk-x86_64.raw.gz
         compression-level: 0
 
     - name: Upload cijoe report
@@ -82,14 +82,14 @@ jobs:
     - name: Show release asset sizes
       run: |
         echo "=== Release assets ==="
-        ls -l jkab-dk-x86_64/jkab-dk-x86_64.qcow2
-        ls -l jkab-dk-x86_64/jkab-dk-x86_64.raw.gz
+        ls -l tellybox-dk-x86_64/tellybox-dk-x86_64.qcow2
+        ls -l tellybox-dk-x86_64/tellybox-dk-x86_64.raw.gz
         ls -l cijoe-report.zip
 
     - name: Create release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          jkab-dk-x86_64/jkab-dk-x86_64.qcow2
-          jkab-dk-x86_64/jkab-dk-x86_64.raw.gz
+          tellybox-dk-x86_64/tellybox-dk-x86_64.qcow2
+          tellybox-dk-x86_64/tellybox-dk-x86_64.raw.gz
           cijoe-report.zip

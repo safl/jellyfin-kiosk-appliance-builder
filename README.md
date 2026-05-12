@@ -34,9 +34,9 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ### Media Player
 
-- **Server**: Lightweight jkab-server (Python Flask) indexing `.nfo` metadata files
+- **Server**: Lightweight tellybox-server (Python Flask) indexing `.nfo` metadata files
 - **Client**: Custom Netflix-style grid UI (pygame) with DPad navigation
-- **System user**: `jkab` / `jkab` (created automatically)
+- **System user**: `tellybox` / `tellybox` (created automatically)
 - **Metadata**: Provided offline via `.nfo` files alongside video (created by MediaElch)
 - **Playback**: mpv with hardware video decoding
 
@@ -60,7 +60,7 @@ to support other hardware such as Raspberry Pi 4/5, AMD-based NUCs, etc.
 
 ### System
 
-- **System user**: `jkab` / `jkab` (auto-login, passwordless sudo)
+- **System user**: `tellybox` / `tellybox` (auto-login, passwordless sudo)
 - **Network**: NetworkManager (configure via `nmtui` over SSH)
 - **Audio**: PulseAudio
 - **GPU**: Intel VA-API hardware video decoding
@@ -82,7 +82,7 @@ them however you want — `Movies`, `Shows`, `Yoga`, `Documentaries`,
 drives both have a `Movies/` folder) merge automatically.
 
 Inside each Collection, follow the same conventions Kodi uses, so a single
-scrape works for both Kodi and JKAB.
+scrape works for both Kodi and Tellybox.
 
 ```
 MyDrive/
@@ -128,8 +128,8 @@ have to descend into) and clicking it opens the details view.
    from themoviedb.org / thetvdb.com
 4. Save with **Movie Files**: `MovieName/MovieName.{ext}` and **TV Show Files**:
    `Show/Season X/Show SXXEYY.{ext}` — these are MediaElch's defaults and what
-   JKAB expects
-5. Enable poster, fanart, and thumb downloads in MediaElch's settings — JKAB
+   Tellybox expects
+5. Enable poster, fanart, and thumb downloads in MediaElch's settings — Tellybox
    recognises both Kodi MovieFolder names (`<title>-poster.jpg`) and the
    generic ones (`poster.jpg`, `cover.jpg`, `fanart.jpg`)
 
@@ -137,7 +137,7 @@ have to descend into) and clicking it opens the details view.
 
 The drive can be **NTFS** or **exFAT** (preferred for cross-OS use). Filesystem
 labels become the mount point name; avoid labels named `Movies`, `Shows`, etc.
-since those collide with Collection names — JKAB will rename them with a
+since those collide with Collection names — Tellybox will rename them with a
 numeric suffix if needed.
 
 ## Install
@@ -156,7 +156,7 @@ numeric suffix if needed.
 3. Download and write the appliance image directly to the drive (replace `/dev/nvme0n1`):
 
    ```bash
-   wget -qO- https://github.com/safl/jellyfin-kiosk-appliance-builder/releases/latest/download/jkab-dk-x86_64.raw.gz | \
+   wget -qO- https://github.com/safl/tellybox/releases/latest/download/tellybox-dk-x86_64.raw.gz | \
      gunzip | sudo dd of=/dev/nvme0n1 bs=4M status=progress
    ```
 
@@ -178,7 +178,7 @@ The image ships without diagnostic tools to keep the size down.
 To install them after flashing, SSH in and run:
 
 ```bash
-jkab-install-extras.sh
+tellybox-install-extras.sh
 ```
 
 This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, and `vainfo`.
@@ -199,7 +199,7 @@ make test         # run test suite on the built image
 make clean        # remove build artifacts
 ```
 
-The baked qcow2 image will be at `~/system_imaging/disk/jkab-dk-x86_64.qcow2`.
+The baked qcow2 image will be at `~/system_imaging/disk/tellybox-dk-x86_64.qcow2`.
 
 ### Run locally
 
@@ -220,6 +220,6 @@ remote-viewer spice://localhost:5930
 
 Edit `configs/dk.toml` (or create a new variant) to adjust:
 
-- **Locale**: `[jkab]` section (UI culture, metadata language, timezone, subtitle/audio prefs)
+- **Locale**: `[tellybox]` section (UI culture, metadata language, timezone, subtitle/audio prefs)
 - **RAM/CPU**: `system_args.kwa` in the `[qemu.guests.*]` section
 - **SSH port**: `system_args.tcp_forward`

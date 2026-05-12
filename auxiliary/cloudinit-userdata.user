@@ -1,6 +1,6 @@
 #cloud-config
 
-hostname: jkab-tv
+hostname: tellybox
 timezone: Europe/Copenhagen
 
 growpart:
@@ -20,18 +20,18 @@ chpasswd:
 ssh_pwauth: true
 
 users:
-  - name: jkab
-    gecos: JKAB
+  - name: tellybox
+    gecos: Tellybox
     groups: [sudo, audio, video, input, plugdev, render]
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
-    plain_text_passwd: jkab
+    plain_text_passwd: tellybox
 
 runcmd:
-  - mkdir -p /home/jkab/.config/openbox
-  - mkdir -p /home/jkab/bin
-  - chown -R jkab:jkab /home/jkab
+  - mkdir -p /home/tellybox/.config/openbox
+  - mkdir -p /home/tellybox/bin
+  - chown -R tellybox:tellybox /home/tellybox
 
   # System packages
   - apt-get update -q
@@ -41,10 +41,10 @@ runcmd:
 
   # Create /media directory structure
   - mkdir -p /media/Movies /media/Shows /media/Videos
-  - mkdir -p /home/jkab/.cache/jkab
+  - mkdir -p /home/tellybox/.cache/tellybox
 
-  # Enable jkab-server systemd service
-  - systemctl enable jkab-server
+  # Enable tellybox-server systemd service
+  - systemctl enable tellybox-server
 
   - systemctl set-default multi-user.target
   - systemctl restart systemd-logind
@@ -85,7 +85,7 @@ runcmd:
 
   - touch /etc/cloud/cloud-init.disabled
 
-final_message: "JKAB appliance provisioned after $UPTIME seconds"
+final_message: "Tellybox appliance provisioned after $UPTIME seconds"
 power_state:
   mode: poweroff
   message: "Provisioning complete, shutting down"
@@ -117,28 +117,28 @@ write_files:
     content: |
       [Service]
       ExecStart=
-      ExecStart=-/sbin/agetty --autologin jkab --noclear %I $TERM
+      ExecStart=-/sbin/agetty --autologin tellybox --noclear %I $TERM
 
-  - path: /etc/systemd/system/jkab-server.service
+  - path: /etc/systemd/system/tellybox-server.service
     owner: root:root
     permissions: "0644"
     content: |
       [Unit]
-      Description=JKAB Media Server
-      Documentation=https://github.com/safl/jkab
+      Description=Tellybox Media Server
+      Documentation=https://github.com/safl/tellybox
       After=network-online.target
       Wants=network-online.target
       
       [Service]
       Type=simple
-      User=jkab
-      Group=jkab
-      ExecStart=/usr/bin/python3 /usr/local/bin/jkab-server.py
+      User=tellybox
+      Group=tellybox
+      ExecStart=/usr/bin/python3 /usr/local/bin/tellybox-server.py
       Restart=on-failure
       RestartSec=10
       StandardOutput=journal
       StandardError=journal
-      SyslogIdentifier=jkab-server
+      SyslogIdentifier=tellybox-server
       
       [Install]
       WantedBy=multi-user.target
@@ -147,8 +147,8 @@ write_files:
     owner: root:root
     permissions: "0644"
     content: |
-      ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/jkab-automount.sh %k"
-      ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/jkab-umount.sh %k"
+      ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/tellybox-automount.sh %k"
+      ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_USB_DRIVER}=="usb-storage", RUN+="/usr/local/bin/tellybox-umount.sh %k"
 
   - path: /etc/udev/rules.d/99-pulse-eight-cec.rules
     owner: root:root
@@ -157,8 +157,8 @@ write_files:
       SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1001", MODE="0666", GROUP="plugdev", SYMLINK+="cec%n"
       SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", MODE="0666", GROUP="plugdev", SYMLINK+="cec%n"
 
-  - path: /home/jkab/.bash_profile
-    owner: jkab:jkab
+  - path: /home/tellybox/.bash_profile
+    owner: tellybox:tellybox
     permissions: "0644"
     defer: true
     content: |
@@ -170,8 +170,8 @@ write_files:
           done
       fi
 
-  - path: /home/jkab/.config/mpv/input.conf
-    owner: jkab:jkab
+  - path: /home/tellybox/.config/mpv/input.conf
+    owner: tellybox:tellybox
     permissions: "0644"
     defer: true
     content: |
@@ -189,8 +189,8 @@ write_files:
       0 ignore
       q ignore
 
-  - path: /home/jkab/.config/mpv/mpv.conf
-    owner: jkab:jkab
+  - path: /home/tellybox/.config/mpv/mpv.conf
+    owner: tellybox:tellybox
     permissions: "0644"
     defer: true
     content: |
@@ -199,8 +199,8 @@ write_files:
       osd-duration=3000
       osd-font-size=40
 
-  - path: /home/jkab/.config/openbox/autostart
-    owner: jkab:jkab
+  - path: /home/tellybox/.config/openbox/autostart
+    owner: tellybox:tellybox
     permissions: "0755"
     defer: true
     content: |
@@ -208,31 +208,31 @@ write_files:
       xset -dpms
       xset s noblank
       unclutter --timeout 1 --jitter 4 &
-      pkill -9 -f jkab-cec-bridge 2>/dev/null
+      pkill -9 -f tellybox-cec-bridge 2>/dev/null
       sleep 1
-      python3 /home/jkab/bin/jkab-cec-bridge.py &
+      python3 /home/tellybox/bin/tellybox-cec-bridge.py &
       
-      # Wait for jkab-server to be ready before launching player
+      # Wait for tellybox-server to be ready before launching player
       for i in $(seq 1 30); do
           curl -sf http://localhost:8080/api/health >/dev/null 2>&1 && break
           sleep 1
       done
       
       while true; do
-          python3 /home/jkab/bin/jkab-player.py
+          python3 /home/tellybox/bin/tellybox-player.py
           sleep 1
       done
 
-  - path: /home/jkab/.xinitrc
-    owner: jkab:jkab
+  - path: /home/tellybox/.xinitrc
+    owner: tellybox:tellybox
     permissions: "0755"
     defer: true
     content: |
       #!/bin/sh
       exec dbus-run-session openbox-session
 
-  - path: /home/jkab/bin/jkab-cec-bridge.py
-    owner: jkab:jkab
+  - path: /home/tellybox/bin/tellybox-cec-bridge.py
+    owner: tellybox:tellybox
     permissions: "0755"
     defer: true
     content: |
@@ -288,13 +288,13 @@ write_files:
               cec.set_active_source()
               log("Re-asserted active source")
 
-  - path: /home/jkab/bin/jkab-player.py
-    owner: jkab:jkab
+  - path: /home/tellybox/bin/tellybox-player.py
+    owner: tellybox:tellybox
     permissions: "0755"
     defer: true
     content: |
       #!/usr/bin/env python3
-      """JKAB Player - Netflix-style grid UI for media browsing and playback"""
+      """Tellybox Player - Netflix-style grid UI for media browsing and playback"""
       
       import json
       import logging
@@ -333,7 +333,7 @@ write_files:
       
       
       class MediaServerAPI:
-          """Client for jkab-server API."""
+          """Client for tellybox-server API."""
       
           def __init__(self, server_url: str = SERVER_URL):
               self.server = server_url
@@ -441,7 +441,7 @@ write_files:
               self.screen = pygame.display.set_mode(
                   (self.width, self.height), pygame.FULLSCREEN
               )
-              pygame.display.set_caption("JKAB Player")
+              pygame.display.set_caption("Tellybox Player")
       
               # Scale factor relative to 1080p
               s = max(1, self.height / 1080)
@@ -942,7 +942,7 @@ write_files:
       if __name__ == "__main__":
           main()
 
-  - path: /usr/local/bin/jkab-automount.sh
+  - path: /usr/local/bin/tellybox-automount.sh
     owner: root:root
     permissions: "0755"
     content: |
@@ -955,7 +955,7 @@ write_files:
       mkdir -p "$MOUNT"
       systemd-mount --no-block --collect "$DEVICE" "$MOUNT"
 
-  - path: /usr/local/bin/jkab-install-extras.sh
+  - path: /usr/local/bin/tellybox-install-extras.sh
     owner: root:root
     permissions: "0755"
     content: |
@@ -973,12 +973,12 @@ write_files:
       
       echo "Done — extras installed."
 
-  - path: /usr/local/bin/jkab-server.py
+  - path: /usr/local/bin/tellybox-server.py
     owner: root:root
     permissions: "0755"
     content: |
       #!/usr/bin/env python3
-      """JKAB Media Server - Index and stream metadata from /media/ directory"""
+      """Tellybox Media Server - Index and stream metadata from /media/ directory"""
       
       import json
       import logging
@@ -994,7 +994,7 @@ write_files:
       
       # Configuration
       MEDIA_ROOT = Path("/media")
-      CACHE_DIR = Path.home() / ".cache" / "jkab"
+      CACHE_DIR = Path.home() / ".cache" / "tellybox"
       PROGRESS_FILE = CACHE_DIR / "progress.toml"
       PORT = 8080
       HOST = "127.0.0.1"
@@ -1321,13 +1321,13 @@ write_files:
               logger.error(f"{MEDIA_ROOT} does not exist")
               sys.exit(1)
       
-          logger.info(f"Starting JKAB Media Server on {HOST}:{PORT}")
+          logger.info(f"Starting Tellybox Media Server on {HOST}:{PORT}")
           logger.info(f"Serving media from {MEDIA_ROOT}")
       
           # Run Flask in production mode (no debug, no reloader)
           app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
 
-  - path: /usr/local/bin/jkab-umount.sh
+  - path: /usr/local/bin/tellybox-umount.sh
     owner: root:root
     permissions: "0755"
     content: |
@@ -1341,15 +1341,15 @@ write_files:
           rmdir "$MOUNT" 2>/dev/null
       fi
 
-  - path: /etc/jkab.conf
+  - path: /etc/tellybox.conf
     owner: root:root
     permissions: "0644"
     content: |
-      JKAB_VARIANT="dk"
-      JKAB_UI_CULTURE="da"
-      JKAB_METADATA_COUNTRY="DK"
-      JKAB_METADATA_LANGUAGE="da"
-      JKAB_SUBTITLE_LANGUAGE="da"
-      JKAB_AUDIO_LANGUAGE="da"
-      JKAB_SUBTITLE_MODE="Smart"
+      TELLYBOX_VARIANT="dk"
+      TELLYBOX_UI_CULTURE="da"
+      TELLYBOX_METADATA_COUNTRY="DK"
+      TELLYBOX_METADATA_LANGUAGE="da"
+      TELLYBOX_SUBTITLE_LANGUAGE="da"
+      TELLYBOX_AUDIO_LANGUAGE="da"
+      TELLYBOX_SUBTITLE_MODE="Smart"
 

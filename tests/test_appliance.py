@@ -1,5 +1,5 @@
 """
-JKAB Appliance Tests
+Tellybox Appliance Tests
 ====================
 
 Verify the baked appliance image has all packages, services, config files,
@@ -75,27 +75,27 @@ def test_udisks2_installed(cijoe: Cijoe):
 # --- Services ---
 
 
-def test_jkab_server_service_enabled(cijoe: Cijoe):
-    err, state = cijoe.run("systemctl is-enabled jkab-server")
+def test_tellybox_server_service_enabled(cijoe: Cijoe):
+    err, state = cijoe.run("systemctl is-enabled tellybox-server")
     assert not err
     assert "enabled" in state.output()
 
 
-def test_jkab_server_service_active(cijoe: Cijoe):
-    err, state = cijoe.run("systemctl is-active jkab-server")
+def test_tellybox_server_service_active(cijoe: Cijoe):
+    err, state = cijoe.run("systemctl is-active tellybox-server")
     assert not err
     assert "active" in state.output()
 
 
-def test_jkab_server_responds(cijoe: Cijoe):
-    """Wait up to 30s for jkab-server to be ready, then check health endpoint."""
+def test_tellybox_server_responds(cijoe: Cijoe):
+    """Wait up to 30s for tellybox-server to be ready, then check health endpoint."""
     err, state = cijoe.run(
         "for i in $(seq 1 15); do"
         " curl -sf http://localhost:8080/api/health >/dev/null 2>&1 && break;"
         " sleep 2; done;"
         " curl -sf http://localhost:8080/api/health"
     )
-    assert not err, "jkab-server not responding after 30s"
+    assert not err, "tellybox-server not responding after 30s"
     assert "ok" in state.output()
 
 
@@ -107,27 +107,27 @@ def test_getty_autologin(cijoe: Cijoe):
         "cat /etc/systemd/system/getty@tty1.service.d/autologin.conf"
     )
     assert not err
-    assert "--autologin jkab" in state.output()
+    assert "--autologin tellybox" in state.output()
 
 
 def test_bash_profile(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jkab/.bash_profile")
+    err, state = cijoe.run("cat /home/tellybox/.bash_profile")
     assert not err
     assert "startx" in state.output()
 
 
 def test_xinitrc(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jkab/.xinitrc")
+    err, state = cijoe.run("cat /home/tellybox/.xinitrc")
     assert not err
     assert "openbox-session" in state.output()
 
 
 def test_openbox_autostart(cijoe: Cijoe):
-    err, state = cijoe.run("cat /home/jkab/.config/openbox/autostart")
+    err, state = cijoe.run("cat /home/tellybox/.config/openbox/autostart")
     assert not err
     output = state.output()
-    assert "jkab-player.py" in output
-    assert "jkab-cec-bridge.py" in output
+    assert "tellybox-player.py" in output
+    assert "tellybox-cec-bridge.py" in output
     assert "unclutter" in output
     assert "xset s off" in output
 
@@ -135,26 +135,26 @@ def test_openbox_autostart(cijoe: Cijoe):
 # --- Locale ---
 
 
-def test_jkab_conf_exists(cijoe: Cijoe):
-    err, state = cijoe.run("cat /etc/jkab.conf")
+def test_tellybox_conf_exists(cijoe: Cijoe):
+    err, state = cijoe.run("cat /etc/tellybox.conf")
     assert not err
     output = state.output()
-    assert "JKAB_VARIANT=" in output
-    assert "JKAB_UI_CULTURE=" in output
-    assert "JKAB_METADATA_COUNTRY=" in output
-    assert "JKAB_METADATA_LANGUAGE=" in output
-    assert "JKAB_SUBTITLE_LANGUAGE=" in output
-    assert "JKAB_AUDIO_LANGUAGE=" in output
-    assert "JKAB_SUBTITLE_MODE=" in output
+    assert "TELLYBOX_VARIANT=" in output
+    assert "TELLYBOX_UI_CULTURE=" in output
+    assert "TELLYBOX_METADATA_COUNTRY=" in output
+    assert "TELLYBOX_METADATA_LANGUAGE=" in output
+    assert "TELLYBOX_SUBTITLE_LANGUAGE=" in output
+    assert "TELLYBOX_AUDIO_LANGUAGE=" in output
+    assert "TELLYBOX_SUBTITLE_MODE=" in output
 
 
-def test_jkab_conf_matches_config(cijoe: Cijoe):
-    variant = cijoe.getconf("jkab.variant")
-    assert variant, "No jkab.variant in config"
+def test_tellybox_conf_matches_config(cijoe: Cijoe):
+    variant = cijoe.getconf("tellybox.variant")
+    assert variant, "No tellybox.variant in config"
 
-    err, state = cijoe.run("cat /etc/jkab.conf")
+    err, state = cijoe.run("cat /etc/tellybox.conf")
     assert not err
-    assert f'JKAB_VARIANT="{variant}"' in state.output()
+    assert f'TELLYBOX_VARIANT="{variant}"' in state.output()
 
 
 # --- Config files ---
@@ -169,7 +169,7 @@ def test_udev_cec_rules(cijoe: Cijoe):
 def test_udev_automount_rules(cijoe: Cijoe):
     err, state = cijoe.run("cat /etc/udev/rules.d/90-automount-media.rules")
     assert not err
-    assert "jkab-automount.sh" in state.output()
+    assert "tellybox-automount.sh" in state.output()
 
 
 def test_logind_power_button(cijoe: Cijoe):
@@ -182,12 +182,12 @@ def test_logind_power_button(cijoe: Cijoe):
 
 def test_scripts_executable(cijoe: Cijoe):
     scripts = [
-        "/home/jkab/bin/jkab-player.py",
-        "/home/jkab/bin/jkab-cec-bridge.py",
-        "/usr/local/bin/jkab-server.py",
-        "/usr/local/bin/jkab-automount.sh",
-        "/usr/local/bin/jkab-umount.sh",
-        "/usr/local/bin/jkab-install-extras.sh",
+        "/home/tellybox/bin/tellybox-player.py",
+        "/home/tellybox/bin/tellybox-cec-bridge.py",
+        "/usr/local/bin/tellybox-server.py",
+        "/usr/local/bin/tellybox-automount.sh",
+        "/usr/local/bin/tellybox-umount.sh",
+        "/usr/local/bin/tellybox-install-extras.sh",
     ]
     for script in scripts:
         err, state = cijoe.run(f"test -x {script}")
@@ -210,10 +210,10 @@ def test_indexer_root_empty_with_no_drives(cijoe: Cijoe):
     assert '"items": []' in state.output() or '"items":[]' in state.output()
 
 
-def test_jkab_cache_directory(cijoe: Cijoe):
-    """Verify cache directory for jkab-server progress tracking."""
-    err, state = cijoe.run("test -d /home/jkab/.cache/jkab")
-    assert not err, "/home/jkab/.cache/jkab does not exist"
+def test_tellybox_cache_directory(cijoe: Cijoe):
+    """Verify cache directory for tellybox-server progress tracking."""
+    err, state = cijoe.run("test -d /home/tellybox/.cache/tellybox")
+    assert not err, "/home/tellybox/.cache/tellybox does not exist"
 
 
 # --- Plymouth ---

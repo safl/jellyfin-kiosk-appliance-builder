@@ -6,9 +6,9 @@ Assembles cloud-init user-data by combining the base config with files from
 the rootfs/ directory. Each file in rootfs/ becomes a write_files entry with
 path, owner, permissions, and content derived from the actual file.
 
-Reads [jkab] config from cijoe to:
-- Template __JKAB_TIMEZONE__ in the base config
-- Generate /etc/jkab.conf with locale settings for build-time server setup
+Reads [tellybox] config from cijoe to:
+- Template __TELLYBOX_TIMEZONE__ in the base config
+- Generate /etc/tellybox.conf with locale settings for build-time server setup
 
 Retargetable: False
 """
@@ -17,7 +17,7 @@ import stat
 from pathlib import Path
 
 
-JKAB_CONF_KEYS = [
+TELLYBOX_CONF_KEYS = [
     "variant",
     "ui_culture",
     "metadata_country",
@@ -42,16 +42,16 @@ def main(args, cijoe):
         log.error(f"rootfs directory not found: {rootfs_dir}")
         return 1
 
-    jkab = cijoe.getconf("jkab", {})
-    if not jkab:
-        log.error("No [jkab] section found in config")
+    tellybox = cijoe.getconf("tellybox", {})
+    if not tellybox:
+        log.error("No [tellybox] section found in config")
         return 1
 
     base = base_path.read_text()
 
     # Template timezone
-    timezone = jkab.get("timezone", "UTC")
-    base = base.replace("__JKAB_TIMEZONE__", timezone)
+    timezone = tellybox.get("timezone", "UTC")
+    base = base.replace("__TELLYBOX_TIMEZONE__", timezone)
 
     lines = [base, "", "write_files:"]
 
@@ -64,8 +64,8 @@ def main(args, cijoe):
         mode = stat.S_IMODE(filepath.stat().st_mode)
         perms = f"0{mode:o}"
 
-        if target.startswith("/home/jkab/"):
-            owner = "jkab:jkab"
+        if target.startswith("/home/tellybox/"):
+            owner = "tellybox:tellybox"
             defer = True
         else:
             owner = "root:root"
@@ -81,14 +81,14 @@ def main(args, cijoe):
             lines.append(f"      {line}")
         lines.append("")
 
-    # Generate /etc/jkab.conf from [jkab] config
-    lines.append("  - path: /etc/jkab.conf")
+    # Generate /etc/tellybox.conf from [tellybox] config
+    lines.append("  - path: /etc/tellybox.conf")
     lines.append("    owner: root:root")
     lines.append('    permissions: "0644"')
     lines.append("    content: |")
-    for key in JKAB_CONF_KEYS:
-        value = jkab.get(key, "")
-        lines.append(f'      JKAB_{key.upper()}="{value}"')
+    for key in TELLYBOX_CONF_KEYS:
+        value = tellybox.get(key, "")
+        lines.append(f'      TELLYBOX_{key.upper()}="{value}"')
     lines.append("")
 
     output_path.write_text("\n".join(lines) + "\n")

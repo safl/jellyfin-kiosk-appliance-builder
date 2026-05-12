@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JKAB Player - Netflix-style grid UI for media browsing and playback"""
+"""Tellybox Player - Netflix-style grid UI for media browsing and playback"""
 
 import json
 import logging
@@ -18,7 +18,7 @@ import urllib.request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-JKAB_VERSION = "v0.8.2"
+TELLYBOX_VERSION = "v0.9.0"
 
 
 def breadcrumb_segments(path: str) -> list:
@@ -73,7 +73,7 @@ class ViewState(Enum):
 
 
 class MediaServerAPI:
-    """Client for jkab-server API."""
+    """Client for tellybox-server API."""
 
     def __init__(self, server_url: str = SERVER_URL):
         self.server = server_url
@@ -190,7 +190,7 @@ class UIRenderer:
         self.screen = pygame.display.set_mode(
             (self.width, self.height), pygame.FULLSCREEN
         )
-        pygame.display.set_caption("JKAB Player")
+        pygame.display.set_caption("Tellybox Player")
 
         # Scale factor relative to 1080p
         s = max(1, self.height / 1080)
@@ -444,7 +444,7 @@ class UIRenderer:
                 x += sep_surf.get_width() + gap * 2
 
     def _render_hint_bar(self, hint_text: str):
-        """Draw the bottom hint bar with the JKAB version anchored bottom-right.
+        """Draw the bottom hint bar with the Tellybox version anchored bottom-right.
 
         Multi-spaced hint segments (split on three+ spaces) are joined with
         a middle-dot glyph for clearer visual separation. A thin divider sits
@@ -464,7 +464,7 @@ class UIRenderer:
         hint_surf = self.font_small.render(joined, True, self.DIM)
         self.screen.blit(hint_surf, (40, bar_top + pad_y))
 
-        ver_surf = self.font_small.render(f"JKAB {JKAB_VERSION}", True, self.DIM)
+        ver_surf = self.font_small.render(f"Tellybox {TELLYBOX_VERSION}", True, self.DIM)
         ver_x = self.width - ver_surf.get_width() - 20
 
         # Vertical separator between hints and version label

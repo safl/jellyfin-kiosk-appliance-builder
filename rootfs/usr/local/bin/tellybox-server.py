@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JKAB Media Server - Index and stream metadata from /media/ directory"""
+"""Tellybox Media Server - Index and stream metadata from /media/ directory"""
 
 import json
 import logging
@@ -15,7 +15,7 @@ from werkzeug.exceptions import NotFound
 
 # Configuration
 MEDIA_ROOT = Path("/media")
-CACHE_DIR = Path.home() / ".cache" / "jkab"
+CACHE_DIR = Path.home() / ".cache" / "tellybox"
 PROGRESS_FILE = CACHE_DIR / "progress.toml"
 PORT = 8080
 HOST = "127.0.0.1"
@@ -576,7 +576,7 @@ if __name__ == "__main__":
         logger.error(f"{MEDIA_ROOT} does not exist")
         sys.exit(1)
 
-    logger.info(f"Starting JKAB Media Server on {HOST}:{PORT}")
+    logger.info(f"Starting Tellybox Media Server on {HOST}:{PORT}")
     logger.info(f"Serving media from {MEDIA_ROOT}")
 
     # Run Flask in production mode (no debug, no reloader)

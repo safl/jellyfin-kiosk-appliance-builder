@@ -1,12 +1,12 @@
 VARIANT ?= dk
-DISK_IMAGE = $(HOME)/system_imaging/disk/jkab-$(VARIANT)-x86_64.qcow2
+DISK_IMAGE = $(HOME)/system_imaging/disk/tellybox-$(VARIANT)-x86_64.qcow2
 
 .DEFAULT_GOAL := help
 
 .PHONY: help deps build test interactive clean
 
 help:
-	@echo "JKAB - Janky Kiosk Appliance Builder"
+	@echo "Tellybox - Tellybox"
 	@echo ""
 	@echo "Targets:"
 	@echo "  deps     Install build dependencies (cijoe via pipx)"
