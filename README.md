@@ -1,6 +1,24 @@
-# Janky Kiosk Appliance Builder (JKAB)
+<p align="center">
+  <img src="assets/tellybox-wordmark.svg" alt="Tellybox" width="220">
+</p>
 
-*JKAB, pronounced "Jakob" in Australian*
+<p align="center">
+  <em>A box for your telly.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/safl/tellybox/actions/workflows/build.yml"><img alt="Build" src="https://github.com/safl/tellybox/actions/workflows/build.yml/badge.svg"></a>
+  <a href="https://github.com/safl/tellybox/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/safl/tellybox?display_name=tag&label=release&color=E50914"></a>
+  <img alt="Debian 13" src="https://img.shields.io/badge/Debian%2013-A81D33?logo=debian&logoColor=white">
+  <img alt="Python 3" src="https://img.shields.io/badge/Python%203-3776AB?logo=python&logoColor=white">
+  <img alt="Built with cijoe" src="https://img.shields.io/badge/built%20with-cijoe-EB6E2F">
+  <img alt="mpv" src="https://img.shields.io/badge/playback-mpv-672A8F">
+  <br>
+  <img alt="Offline-first" src="https://img.shields.io/badge/offline-first-E50914">
+  <img alt="Zero config" src="https://img.shields.io/badge/setup-zero%20config-success">
+  <img alt="HDMI CEC remote" src="https://img.shields.io/badge/remote-HDMI%20CEC-blue">
+  <img alt="x86_64" src="https://img.shields.io/badge/arch-x86__64-lightgrey">
+</p>
 
 Zero-config distro image for a Netflix-style media kiosk. Boots straight into a
 custom grid-based UI for browsing and playing video from `/media/` drives.
