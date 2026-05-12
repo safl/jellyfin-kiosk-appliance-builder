@@ -20,7 +20,7 @@ import pygame
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TELLYBOX_VERSION = "v0.9.0"
+TELLYBOX_VERSION = "v0.9.1"
 
 
 def breadcrumb_segments(path: str) -> list:
