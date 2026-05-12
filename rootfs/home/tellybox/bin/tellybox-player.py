@@ -189,7 +189,7 @@ class UIRenderer:
         self.screen = pygame.display.set_mode(
             (self.width, self.height), pygame.FULLSCREEN
         )
-        pygame.display.set_caption("Tellybox Player")
+        pygame.display.set_caption(f"Tellybox Player {TELLYBOX_VERSION}")
 
         # Scale factor relative to 1080p
         s = max(1, self.height / 1080)

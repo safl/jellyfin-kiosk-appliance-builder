@@ -223,10 +223,31 @@ Tests run via **cijoe testrunner** (pytest) over SSH to the QEMU guest.
 
 ### Debugging on Booted Image
 ```bash
-ssh -p 4200 root@localhost           # root access (test/interactive mode)
-ssh -p 4200 tellybox@localhost           # user account (tellybox/tellybox)
-journalctl -u tellybox-server -f         # follow server logs
+ssh -p 4200 root@localhost                  # root (test/interactive mode)
+ssh -p 4200 tellybox@localhost              # user (tellybox/tellybox)
+
+# Process / service logs
+journalctl -u tellybox-server -f            # indexer + HTTP server
+tail -f /tmp/cec-bridge.log                 # CEC keypresses & bridge state
+cat /tmp/xorg.log                           # X11 startup (one-shot, not tailable)
+pkill -9 -f tellybox-player.py              # force the autostart loop to relaunch
+
+# Audio (HDMI routing)
+wpctl status                                # PipeWire sinks; * marks default
+wpctl set-default <id>                      # switch default sink
+
+# Media / index state
+ls /media/                                  # mounted drives (label-named)
+curl -s localhost:8080/api/media | jq .     # what the server is serving
+cat /etc/tellybox.conf                      # variant + locale settings
+
+# Hardware
+lsusb | grep 2548                           # Pulse-Eight USB CEC adapter
+findmnt -A                                  # mount table
 ```
+
+The player has no log file — pygame stdout/stderr go to `/tmp/xorg.log`
+since it runs under the `startx` invocation in `.bash_profile`.
 
 ## Build Output
 

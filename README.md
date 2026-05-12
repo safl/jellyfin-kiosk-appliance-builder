@@ -155,9 +155,13 @@ numeric suffix if needed.
 
 3. Download and write the appliance image directly to the drive (replace `/dev/nvme0n1`):
 
+   > ⚠️ This **erases the entire target drive**. Verify the device name against
+   > `lsblk` before running — passing the wrong one will wipe the live USB you
+   > booted from, or worse.
+
    ```bash
    wget -qO- https://github.com/safl/tellybox/releases/latest/download/tellybox-dk-x86_64.raw.gz | \
-     gunzip | sudo dd of=/dev/nvme0n1 bs=4M status=progress
+     gunzip | sudo dd of=/dev/nvme0n1 bs=4M status=progress conv=fsync && sync
    ```
 
 4. Reboot into the installed appliance:
@@ -182,6 +186,25 @@ tellybox-install-extras.sh
 ```
 
 This adds: `intel-gpu-tools`, `mesa-utils`, `psmisc`, `va-driver-all`, and `vainfo`.
+
+## Troubleshooting
+
+SSH in as `root` / `root` (or `tellybox` / `tellybox`), then:
+
+- **No audio on HDMI** — `wpctl status` shows PipeWire sinks. If the wrong one
+  is default, `wpctl set-default <id>`. Then `pkill -9 -f tellybox-player.py`
+  to relaunch (the openbox autostart loop will respawn it).
+- **CEC remote keys do nothing** — `tail -f /tmp/cec-bridge.log` shows what
+  the bridge sees. If empty, the Pulse-Eight USB adapter isn't recognised:
+  `dmesg | grep -i pulse-eight` and check it's plugged in.
+- **"No media found"** — `journalctl -u tellybox-server -f` and look for
+  filesystem-walk errors. The indexer ignores `System Volume Information`,
+  macOS `._*` resource forks, etc., but unreadable mount points show up here.
+- **Player crashes or won't start** — `cat /tmp/xorg.log` for the X session,
+  `pkill -9 -f tellybox-player.py` to force the autostart loop to retry.
+- **Drive plugged in but no Collection appears** — `lsblk` and `findmnt -A`
+  to confirm udev mounted it. If not, check `dmesg` for filesystem errors
+  (corrupt NTFS is common on drives ejected mid-write).
 
 ## Build from source
 
