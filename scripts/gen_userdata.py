@@ -47,7 +47,7 @@ def main(args, cijoe):
         log.error("No [tellybox] section found in config")
         return 1
 
-    base = base_path.read_text()
+    base = base_path.read_text(encoding="utf-8")
 
     # Template timezone
     timezone = tellybox.get("timezone", "UTC")
@@ -60,7 +60,7 @@ def main(args, cijoe):
             continue
 
         target = "/" + str(filepath.relative_to(rootfs_dir))
-        content = filepath.read_text()
+        content = filepath.read_text(encoding="utf-8")
         mode = stat.S_IMODE(filepath.stat().st_mode)
         perms = f"0{mode:o}"
 
@@ -91,7 +91,7 @@ def main(args, cijoe):
         lines.append(f'      TELLYBOX_{key.upper()}="{value}"')
     lines.append("")
 
-    output_path.write_text("\n".join(lines) + "\n")
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     log.info(f"Generated {output_path}")
 
     return 0

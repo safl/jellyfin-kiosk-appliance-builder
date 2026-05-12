@@ -1,8 +1,8 @@
 [Unit]
 Description=Tellybox Media Server
 Documentation=https://github.com/safl/tellybox
-After=network-online.target
-Wants=network-online.target
+# The server binds to 127.0.0.1 only — no need to wait for NetworkManager
+# to declare network-online before starting. Earlier start = faster boot.
 
 [Service]
 Type=simple

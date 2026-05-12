@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Tellybox Media Server - Index and stream metadata from /media/ directory"""
 
-import json
 import logging
 import mimetypes
+import os
 import sys
+import tempfile
+import tomllib
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import tomli_w
 from flask import Flask, jsonify, send_file, request
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import HTTPException, NotFound
 
 # Configuration
 MEDIA_ROOT = Path("/media")
@@ -392,12 +395,6 @@ def load_progress() -> dict:
     """Load progress data from TOML file."""
     if not PROGRESS_FILE.exists():
         return {}
-
-    try:
-        import tomllib
-    except ImportError:
-        import tomli as tomllib
-
     try:
         with open(PROGRESS_FILE, "rb") as f:
             return tomllib.load(f)
@@ -407,30 +404,40 @@ def load_progress() -> dict:
 
 
 def save_progress(data: dict):
-    """Save progress data to TOML file."""
-    try:
-        import tomli_w
-    except ImportError:
-        # Fallback: write minimal TOML manually if tomli_w not available
-        try:
-            with open(PROGRESS_FILE, "w") as f:
-                for key, value in data.items():
-                    # Escape key for TOML
-                    key_safe = key.replace('"', '\\"')
-                    f.write(f'"{key_safe}" = {json.dumps(value)}\n')
-            return
-        except Exception as e:
-            logger.error(f"Failed to save progress: {e}")
-            return
+    """Atomically write progress to TOML.
 
+    Writes to a sibling tempfile and renames into place so an unclean
+    shutdown (kiosk power-cut, OOM kill) can never leave a half-written
+    file that wipes every user's watch position.
+    """
     try:
-        with open(PROGRESS_FILE, "wb") as f:
-            tomli_w.dump(data, f)
+        PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(
+            prefix=".progress.", suffix=".toml", dir=PROGRESS_FILE.parent
+        )
+        try:
+            with os.fdopen(fd, "wb") as f:
+                tomli_w.dump(data, f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, PROGRESS_FILE)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
     except Exception as e:
         logger.error(f"Failed to save progress: {e}")
 
 
 # --- Flask routes ---
+
+
+@app.errorhandler(HTTPException)
+def _json_http_error(e: HTTPException):
+    """Return JSON for any aborted HTTP exception so the API is uniform."""
+    return jsonify({"error": e.description, "code": e.code}), e.code
 
 
 @app.route("/api/health", methods=["GET"])

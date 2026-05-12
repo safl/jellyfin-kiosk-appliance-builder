@@ -1,7 +1,7 @@
 ---
 doc: |
-  Tellybox
-  =====================
+  Build the Tellybox image
+  ========================
 
   Build a Tellybox media kiosk appliance disk image from a Debian cloud image.
 

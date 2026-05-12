@@ -30,7 +30,10 @@ def on_keypress(event, key, duration):
     name = KEY_MAP.get(key)
     if name:
         log(f"key {key:#04x} -> {name}")
-        subprocess.run(["xdotool", "key", name])
+        try:
+            subprocess.run(["xdotool", "key", name], timeout=2)
+        except subprocess.TimeoutExpired:
+            log(f"xdotool timed out delivering {name!r}")
     else:
         log(f"key {key:#04x} UNMAPPED")
 

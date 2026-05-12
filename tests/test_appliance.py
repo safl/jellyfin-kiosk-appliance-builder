@@ -229,3 +229,23 @@ def test_grub_no_earlyprintk(cijoe: Cijoe):
     err, state = cijoe.run("grep GRUB_CMDLINE_LINUX= /etc/default/grub")
     assert not err
     assert "earlyprintk" not in state.output()
+
+
+# --- Cloud-init ---
+
+
+def test_cloud_init_disabled_after_provisioning(cijoe: Cijoe):
+    """The baked image must have cloud-init disabled so it doesn't re-run
+    provisioning (re-installing packages, resetting state) on every boot."""
+    err, _ = cijoe.run("test -e /etc/cloud/cloud-init.disabled")
+    assert not err, "/etc/cloud/cloud-init.disabled is missing"
+
+
+def test_cache_dir_owned_by_tellybox(cijoe: Cijoe):
+    """The progress-tracking cache must be writable by the tellybox-server
+    process, which runs as user `tellybox`. If cloud-init creates it as root
+    (the default if mkdir happens after the home-dir chown sweep), the server
+    silently fails to save watch progress."""
+    err, state = cijoe.run("stat -c '%U' /home/tellybox/.cache/tellybox")
+    assert not err
+    assert state.output().strip() == "tellybox"

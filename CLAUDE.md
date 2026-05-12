@@ -146,7 +146,7 @@ The appliance is provisioned by cloud-init via `auxiliary/cloudinit-userdata.use
 - **System user**: `tellybox` / `tellybox` (passwordless sudo, auto-login on tty1)
 - **Hostname**: `tellybox`
 - **Packages (apt)**: kiosk (openbox, xinit, x11-xserver-utils, dbus-user-session, unclutter), playback (mpv, intel-media-va-driver-non-free, i965-va-driver-shaders, mesa-va-drivers), audio (pipewire-audio, wireplumber, pulseaudio-utils), CEC (cec-utils, libcec-dev, xdotool), automount (udisks2, ntfs-3g, exfatprogs), Python (python3, python3-pip, python3-pygame), networking (network-manager, openssh-server, curl, ca-certificates), boot (plymouth-themes)
-- **Pip**: Flask, tomli, tomli-w (for tellybox-server); cec (libcec Python binding for the CEC bridge — Debian has no `python3-cec` package)
+- **Pip**: Flask, tomli-w (for tellybox-server progress persistence; TOML reads use stdlib `tomllib` on Python 3.11+); cec (libcec Python binding for the CEC bridge — Debian has no `python3-cec` package)
 - **Cache**: `/home/tellybox/.cache/tellybox` (tellybox-server writes resume-position TOML here)
 - **CEC**: cec-utils + udev rules for Pulse-Eight USB CEC adapter (VID 2548)
 - **Automount**: udisks2 + udev rules for `/media/<label>` USB/SD mounting (no media dirs pre-created — `/media/` is empty until a drive is plugged in)
@@ -229,7 +229,7 @@ ssh -p 4200 tellybox@localhost              # user (tellybox/tellybox)
 # Process / service logs
 journalctl -u tellybox-server -f            # indexer + HTTP server
 tail -f /tmp/cec-bridge.log                 # CEC keypresses & bridge state
-cat /tmp/xorg.log                           # X11 startup (one-shot, not tailable)
+tail -f /tmp/xorg.log                       # X session output (appends across restarts)
 pkill -9 -f tellybox-player.py              # force the autostart loop to relaunch
 
 # Audio (HDMI routing)

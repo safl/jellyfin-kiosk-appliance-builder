@@ -1,7 +1,7 @@
 ---
 doc: |
-  Test the Tellybox
-  ==============================
+  Test the Tellybox image
+  =======================
 
   Boot the baked appliance image in QEMU and run the test suite.
   Requires a built image — run ``make build`` first.

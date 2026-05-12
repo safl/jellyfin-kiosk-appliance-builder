@@ -10,8 +10,10 @@ DEVICE="/dev/$1"
 RAW_LABEL=$(blkid -s LABEL -o value "$DEVICE" 2>/dev/null || true)
 [ -n "$RAW_LABEL" ] || RAW_LABEL="$1"
 
-# Sanitize: strip path separators and whitespace, fall back to device name
-SAFE_LABEL=$(printf '%s' "$RAW_LABEL" | tr -c '[:alnum:]._-' '_' | sed 's/^_*//;s/_*$//')
+# Sanitize: strip path separators and whitespace, then strip leading dots so
+# the mount doesn't end up at `/media/.HiddenLabel` (where the indexer's
+# is-ignored check would skip it as a dotfile). Fall back to device name.
+SAFE_LABEL=$(printf '%s' "$RAW_LABEL" | tr -c '[:alnum:]._-' '_' | sed 's/^[._]*//;s/_*$//')
 [ -n "$SAFE_LABEL" ] || SAFE_LABEL="$1"
 
 reserved() {

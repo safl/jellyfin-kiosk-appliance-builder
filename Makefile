@@ -6,14 +6,14 @@ DISK_IMAGE = $(HOME)/system_imaging/disk/tellybox-$(VARIANT)-x86_64.qcow2
 .PHONY: help deps build test interactive clean
 
 help:
-	@echo "Tellybox - Tellybox"
+	@echo "Tellybox — a box for your telly"
 	@echo ""
 	@echo "Targets:"
-	@echo "  deps     Install build dependencies (cijoe via pipx)"
-	@echo "  build       Build the appliance disk image"
-	@echo "  test        Run test suite on a built image"
-	@echo "  interactive Boot the appliance in QEMU with SPICE display"
-	@echo "  clean    Remove build artifacts"
+	@echo "  deps         Install build dependencies (cijoe via pipx)"
+	@echo "  build        Build the appliance disk image"
+	@echo "  test         Run test suite on a built image"
+	@echo "  interactive  Boot the appliance in QEMU with SPICE display"
+	@echo "  clean        Remove build artifacts"
 	@echo ""
 	@echo "Variant: $(VARIANT) (override with VARIANT=us, etc.)"
 	@echo "Output: $(DISK_IMAGE)"

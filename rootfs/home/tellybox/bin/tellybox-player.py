@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """Tellybox Player - Netflix-style grid UI for media browsing and playback"""
 
+import io
 import json
 import logging
+import re
 import subprocess
 import sys
+import textwrap
 import time
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 import pygame
-import urllib.parse
-import urllib.request
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -228,7 +231,12 @@ class UIRenderer:
         pygame.display.flip()
 
     def _load_image(self, image_url: str) -> Optional[pygame.Surface]:
-        """Load image from URL with caching."""
+        """Load image from URL with caching.
+
+        Negative results (missing poster, fetch error) are cached too so
+        repeat renders don't re-issue the 2-second-timeout HTTP request
+        for every poster on every grid redraw.
+        """
         if image_url in self.image_cache:
             return self.image_cache[image_url]
 
@@ -236,13 +244,12 @@ class UIRenderer:
             req = urllib.request.Request(image_url)
             with urllib.request.urlopen(req, timeout=2) as resp:
                 img_data = resp.read()
-            import io
-
             surf = pygame.image.load(io.BytesIO(img_data))
             self.image_cache[image_url] = surf
             return surf
         except Exception as e:
             logger.debug(f"Failed to load image {image_url}: {e}")
+            self.image_cache[image_url] = None
             return None
 
     def render_grid(
@@ -455,7 +462,6 @@ class UIRenderer:
         # Divider above the bar
         pygame.draw.rect(self.screen, (50, 50, 50), (0, bar_top, self.width, max(1, int(2 * s))))
 
-        import re
         joined = re.sub(r" {2,}", "  \u00B7  ", hint_text)
         hint_surf = self.font_small.render(joined, True, self.DIM)
         self.screen.blit(hint_surf, (40, bar_top + pad_y))
@@ -537,7 +543,7 @@ class UIRenderer:
         if item.get("type") == "folder":
             info_parts.append("Collection")
         elif metadata.get("season"):
-            info_parts.append(f"S{metadata['season']:02d}E{metadata.get('episode', 0):02d}")
+            info_parts.append(f"S{int(metadata['season']):02d}E{int(metadata.get('episode', 0)):02d}")
         if metadata.get("runtime"):
             info_parts.append(f"{metadata['runtime']} min")
 
@@ -566,8 +572,6 @@ class UIRenderer:
             plot = metadata["plot"]
             char_width = self.font_small.get_ascent()
             chars_per_line = max(30, meta_w // (char_width * 0.6))
-            import textwrap
-
             plot_lines = textwrap.wrap(plot, width=chars_per_line)
             for line in plot_lines[:4]:
                 line_surf = self.font_small.render(line, True, self.TEXT)
@@ -665,7 +669,6 @@ class UIRenderer:
         text_x = margin + thumb_w + int(28 * s)
         text_w = self.width - text_x - margin
 
-        import textwrap
         plot_chars = max(40, int(text_w / (self.font_small.get_height() * 0.55)))
 
         prev_clip = self.screen.get_clip()
@@ -1132,14 +1135,15 @@ def main():
 
     ui.show_message("Connecting to server...")
 
-    # Wait for server to be ready
+    # Wait for server to be ready. api.get_media() returns None on failure
+    # (it catches its own exceptions), so check the return value — a raise
+    # never reaches us here, and a bare try/except would break on the first
+    # iteration regardless of whether the server is actually up.
     for _ in range(60):
-        try:
-            api.get_media()
+        if api.get_media() is not None:
             logger.info("Server ready")
             break
-        except Exception:
-            time.sleep(1)
+        time.sleep(1)
     else:
         ui.show_message("Server not responding")
         time.sleep(3)
